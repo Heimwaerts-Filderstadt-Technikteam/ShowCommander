@@ -104,6 +104,19 @@
   }
 
   /**
+   * Ende des Events: fest eingetragenes Ende (endOffset, Sekunden nach dem Start) oder
+   * automatisch aus dem Ablauf. Läuft die Show und überzieht über das feste Ende hinaus,
+   * zählt das erwartete Ende.
+   */
+  function eventEnd(rd, t) {
+    t = t || compute(rd, rd.live);
+    const auto = t.projectedEnd != null ? t.projectedEnd : t.plannedEnd;
+    if (rd.endOffset == null || !rd.startTime) return auto;
+    const fixed = Date.parse(rd.startTime) + Number(rd.endOffset) * 1000;
+    return t.projectedEnd != null && t.projectedEnd > fixed ? t.projectedEnd : fixed;
+  }
+
+  /**
    * Todos vor und nach dem Event planen.
    *
    * Vor dem Event (phase 'pre'): rückwärts vom Show-Start (minus Puffer). Reihenfolge = Arbeitsreihenfolge,
@@ -123,7 +136,7 @@
     const rel = base == null;
     const S = rel ? 0 : base;
     const t = compute(rd, rd.live, now);
-    const showEnd = t.projectedEnd != null ? t.projectedEnd : t.plannedEnd;
+    const showEnd = eventEnd(rd, t);
     const fixedMs = td => (td.fixedDue == null || td.fixedDue === '' || rel ? null : S + Number(td.fixedDue) * 1000);
     const dur = td => (td.duration || 0) * 1000;
     const groupsOf = list => {
@@ -195,5 +208,5 @@
     };
   }
 
-  return { compute, computeTodos, remainingMs, fmtDur, fmtClock, parseDur, isPlayable, hardStartMs };
+  return { compute, computeTodos, eventEnd, remainingMs, fmtDur, fmtClock, parseDur, isPlayable, hardStartMs };
 });

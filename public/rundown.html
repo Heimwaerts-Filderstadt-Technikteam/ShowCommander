@@ -13,6 +13,10 @@
   <label class="muted" style="display:flex;align-items:center;gap:6px;font-size:12px">Start
     <input type="datetime-local" id="rdStart" style="width:auto;padding:4px 6px">
   </label>
+  <label class="muted" id="rdEndWrap" style="display:flex;align-items:center;gap:6px;font-size:12px" title="Ende des Events. Leer = automatisch aus dem Ablauf. Die Nachbereitung rechnet ab hier.">Ende
+    <input type="text" id="rdEnd" class="mono" style="width:70px;padding:4px 6px" placeholder="auto">
+    <button class="hidden" id="rdEndReset" title="Wieder automatisch aus dem Ablauf">↺</button>
+  </label>
   <span class="conn" id="conn" title="Live-Verbindung"></span>
   <div class="spacer"></div>
   <a class="btn small" id="lnkOutput" target="_blank">Output</a>

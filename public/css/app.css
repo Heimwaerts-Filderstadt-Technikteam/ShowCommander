@@ -288,3 +288,8 @@ table.todo .t-due::placeholder { color: var(--text); opacity: .55; }
 .todos .todo-head .buf input { width: 52px; padding: 3px 6px; }
 .todos .phase-list.drop-target, .todos.drop-target .phase-list { outline: 2px dashed var(--accent); outline-offset: 2px; border-radius: 6px; }
 .todos .todo-empty { padding: 4px 0 6px; }
+/* Festes Event-Ende im Kopf */
+#rdEnd.fixed { color: var(--accent); border-color: #2a4f8f; background: #0f1a2c; }
+#rdEnd::placeholder { color: var(--text); opacity: .55; }
+#rdEndReset { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 2px 4px; border-radius: 4px; font-size: 13px; }
+#rdEndReset:hover { color: var(--text); background: var(--panel2); }

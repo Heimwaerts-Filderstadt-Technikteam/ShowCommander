@@ -164,7 +164,8 @@ Zwei getrennte Blöcke im Editor: **Vorbereitung** steht über dem Ablauf (Aufba
 - Oben steht, wann die Vorbereitung insgesamt spätestens beginnen muss.
 
 **Nachbereitung** – vorwärts ab Show-Ende
-- Startet am (erwarteten) Ende des Ablaufs plus **Puffer**. Läuft die Show länger, verschieben sich die Zeiten automatisch mit.
+- Startet am Ende des Events plus **Puffer**. Das Ende ergibt sich automatisch aus dem Ablauf – oder du trägst es oben neben „Start“ im Feld **Ende** selbst ein (leer bzw. ↺ = wieder automatisch). Schiebst du das Ende nach hinten oder ziehst es vor, wandert die ganze Nachbereitung mit.
+- Läuft die Show länger als geplant, verschieben sich die Zeiten ebenfalls automatisch.
 - Angezeigt werden „Beginn ab“, „Fertig bis“ und wann alles erledigt ist.
 
 **„Fertig bis“ selbst festlegen**

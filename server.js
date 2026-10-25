@@ -153,6 +153,11 @@ app.patch('/api/rundowns/:id', auth, (req, res) => {
   const b = req.body;
   if (b.name !== undefined) rd.name = String(b.name);
   if (b.startTime !== undefined) { rd.startTime = b.startTime || null; rd.startTimeOverride = !!b.startTime; }
+  if (b.endOffset !== undefined) {
+    const v = b.endOffset === null || b.endOffset === '' ? null : Number(b.endOffset);
+    if (v !== null && (!isFinite(v) || v <= 0 || v > 7 * 86400)) return res.status(400).json({ error: 'Das Ende muss nach dem Start liegen' });
+    rd.endOffset = v === null ? null : Math.round(v);
+  }
   if (Array.isArray(b.columns)) rd.columns = b.columns.map(c => ({ id: c.id || store.uid('c'), name: String(c.name || '') }));
   if (b.prompter && typeof b.prompter === 'object') rd.prompter = { ...(rd.prompter || {}), ...b.prompter };
   if (b.keep !== undefined) rd.keep = !!b.keep;
