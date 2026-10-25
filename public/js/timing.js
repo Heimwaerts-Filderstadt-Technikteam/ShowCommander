@@ -104,46 +104,94 @@
   }
 
   /**
-   * Vorbereitungs-Todos rückwärts vom Show-Start planen.
-   * Reihenfolge = Arbeitsreihenfolge; das letzte Todo muss (abzüglich Puffer) zum Start fertig sein.
-   * Todos mit parallel=true laufen gleichzeitig mit dem vorherigen und enden zur selben Zeit.
-   * Liefert pro Todo: latestStart, due (Fertig-bis) als ms (oder relativ zu 0 = Start, wenn keine Startzeit),
-   * state: 'done' | 'overdue' (Beginn verpasst) | 'soon' (≤ 10 min bis spätestem Beginn) | 'ok'
+   * Todos vor und nach dem Event planen.
+   *
+   * Vor dem Event (phase 'pre'): rückwärts vom Show-Start (minus Puffer). Reihenfolge = Arbeitsreihenfolge,
+   *   die letzte Aufgabe muss zum Start fertig sein. Ergebnis je Todo: start = spätester Beginn, due = fertig bis.
+   * Nach dem Event (phase 'post'): vorwärts ab Show-Ende (plus Puffer). Ergebnis: start = Beginn ab, due = fertig bis.
+   *
+   * parallel = läuft gleichzeitig mit der vorherigen Aufgabe.
+   * fixedDue = fest eingetragenes „Fertig bis“ (Sekunden relativ zum Show-Start). Die Aufgabe richtet sich danach,
+   *   die anderen Aufgaben rechnen von dort weiter. Passt der Termin nicht zur Kette, gibt es conflict = true.
+   *
+   * state: 'done' | 'overdue' | 'soon' | 'running' | 'ok'
    */
   function computeTodos(rd, now) {
     now = now ?? Date.now();
-    const todos = rd.todos || [];
+    const all = rd.todos || [];
     const base = rd.startTime ? Date.parse(rd.startTime) : null;
     const rel = base == null;
-    const end0 = (rel ? 0 : base) - (Number(rd.todoBuffer) || 0) * 1000;
-    // Gruppen bilden (parallel hängt an der vorherigen Gruppe)
-    const groups = [];
-    for (const t of todos) {
-      if (t.parallel && groups.length) groups[groups.length - 1].push(t); else groups.push([t]);
-    }
+    const S = rel ? 0 : base;
+    const t = compute(rd, rd.live, now);
+    const showEnd = t.projectedEnd != null ? t.projectedEnd : t.plannedEnd;
+    const fixedMs = td => (td.fixedDue == null || td.fixedDue === '' || rel ? null : S + Number(td.fixedDue) * 1000);
+    const dur = td => (td.duration || 0) * 1000;
+    const groupsOf = list => {
+      const g = [];
+      for (const td of list) { if (td.parallel && g.length) g[g.length - 1].push(td); else g.push([td]); }
+      return g;
+    };
     const out = {};
-    let cursor = end0;
-    for (let g = groups.length - 1; g >= 0; g--) {
-      const grp = groups[g];
-      const maxDur = Math.max(0, ...grp.map(t => (t.duration || 0) * 1000));
-      for (const t of grp) out[t.id] = { due: cursor, latestStart: cursor - (t.duration || 0) * 1000 };
-      cursor -= maxDur;
+
+    // --- vor dem Event: rückwärts ---
+    const pre = all.filter(x => x.phase !== 'post');
+    const preEnd = S - (Number(rd.todoBuffer) || 0) * 1000;
+    let cursor = preEnd;
+    const preGroups = groupsOf(pre);
+    for (let g = preGroups.length - 1; g >= 0; g--) {
+      const grp = preGroups[g];
+      const fixedInGroup = grp.map(fixedMs).filter(v => v != null);
+      const groupEnd = fixedInGroup.length ? Math.min(...fixedInGroup) : cursor;
+      let next = Infinity;
+      for (const td of grp) {
+        const f = fixedMs(td);
+        const due = f != null ? f : groupEnd;
+        out[td.id] = { phase: 'pre', start: due - dur(td), due, fixed: f != null, conflict: f != null && f > cursor };
+        next = Math.min(next, due - dur(td));
+      }
+      cursor = next;
     }
-    let open = 0, overdue = 0, firstOpen = null;
-    for (const t of todos) {
-      const r = out[t.id];
-      if (t.done) r.state = 'done';
-      else {
-        open++;
-        if (!rel && now > r.latestStart) { r.state = 'overdue'; overdue++; }
-        else if (!rel && now > r.latestStart - 10 * 60e3) r.state = 'soon';
-        else r.state = 'ok';
-        if (firstOpen == null || r.latestStart < firstOpen) firstOpen = r.latestStart;
+    const preStart = pre.length ? cursor : null;
+
+    // --- nach dem Event: vorwärts ---
+    const post = all.filter(x => x.phase === 'post');
+    const postBegin = showEnd + (Number(rd.todoPostBuffer) || 0) * 1000;
+    cursor = postBegin;
+    for (const grp of groupsOf(post)) {
+      const groupStart = cursor;
+      let end = groupStart;
+      for (const td of grp) {
+        const f = fixedMs(td);
+        const due = f != null ? f : groupStart + dur(td);
+        const start = due - dur(td);
+        out[td.id] = { phase: 'post', start, due, fixed: f != null, conflict: f != null && start < groupStart };
+        end = Math.max(end, due);
+      }
+      cursor = end;
+    }
+    const postEnd = post.length ? cursor : null;
+
+    // --- Status ---
+    const sum = { pre: { total: 0, done: 0, open: 0, overdue: 0 }, post: { total: 0, done: 0, open: 0, overdue: 0 } };
+    for (const td of all) {
+      const r = out[td.id], s = sum[r.phase];
+      s.total++;
+      if (td.done) { r.state = 'done'; s.done++; continue; }
+      s.open++;
+      if (rel) { r.state = 'ok'; continue; }
+      if (r.phase === 'pre') {
+        if (now > r.start) { r.state = 'overdue'; s.overdue++; } else if (now > r.start - 10 * 60e3) r.state = 'soon'; else r.state = 'ok';
+      } else {
+        if (now > r.due) { r.state = 'overdue'; s.overdue++; } else if (now >= r.start) r.state = 'running'; else r.state = 'ok';
       }
     }
     return {
-      items: out, relative: rel, prepStart: todos.length ? cursor : null, prepEnd: end0,
-      total: todos.length, open, overdue, done: todos.length - open, firstOpenStart: firstOpen,
+      items: out, relative: rel, showStart: S, showEnd,
+      prepStart: preStart, prepEnd: preEnd, postStart: postBegin, postEnd,
+      pre: sum.pre, post: sum.post,
+      // Kompatibilität (Dashboard)
+      total: all.length, open: sum.pre.open + sum.post.open, overdue: sum.pre.overdue + sum.post.overdue,
+      done: sum.pre.done + sum.post.done,
     };
   }
 

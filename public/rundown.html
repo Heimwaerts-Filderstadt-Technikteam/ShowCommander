@@ -76,15 +76,34 @@
 
 <section class="todos" id="todoPanel">
   <div class="todo-head">
-    <button class="todo-toggle" id="todoToggle" aria-expanded="true"><span class="chev">▾</span> Vorbereitung</button>
+    <button class="todo-toggle" id="todoToggle" aria-expanded="true"><span class="chev">▾</span> Vor- &amp; Nachbereitung</button>
     <span class="todo-sum" id="todoSum"></span>
-    <span class="spacer"></span>
-    <label class="muted need-editor-inline" style="font-size:12px;display:flex;align-items:center;gap:6px" title="So viele Minuten vor Show-Start soll alles fertig sein">
-      Puffer vor Start <input type="text" id="todoBuffer" class="mono" style="width:56px;padding:3px 6px"> min</label>
-    <button class="btn small need-editor-inline" id="todoReset" title="Alle Häkchen entfernen">Häkchen zurücksetzen</button>
-    <button class="btn small need-editor-inline" id="todoAdd">＋ Todo</button>
   </div>
-  <div class="todo-body" id="todoBody"></div>
+  <div class="todo-body" id="todoBody">
+    <div class="todo-phase" data-phase="pre">
+      <div class="phase-head">
+        <strong>Vor dem Event</strong>
+        <span class="phase-info" id="preInfo"></span>
+        <span class="spacer"></span>
+        <label class="muted need-editor-inline buf" title="So viele Minuten vor Show-Start soll alles fertig sein">
+          Puffer <input type="text" id="todoBuffer" class="mono"> min vor Start</label>
+        <button class="btn small need-editor-inline" data-add-phase="pre">＋ Todo</button>
+      </div>
+      <div class="phase-list" id="preList"></div>
+    </div>
+    <div class="todo-phase" data-phase="post">
+      <div class="phase-head">
+        <strong>Nach dem Event</strong>
+        <span class="phase-info" id="postInfo"></span>
+        <span class="spacer"></span>
+        <label class="muted need-editor-inline buf" title="So viele Minuten nach Show-Ende geht es los">
+          Puffer <input type="text" id="todoPostBuffer" class="mono"> min nach Ende</label>
+        <button class="btn small need-editor-inline" data-add-phase="post">＋ Todo</button>
+      </div>
+      <div class="phase-list" id="postList"></div>
+    </div>
+    <div class="todo-foot need-editor-inline"><button class="btn small" id="todoReset" title="Alle Häkchen entfernen">Alle Häkchen zurücksetzen</button></div>
+  </div>
 </section>
 
 <div class="rd-wrap">

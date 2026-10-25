@@ -27,7 +27,7 @@ Keine npm-Abhängigkeiten – läuft mit reinem Node.js (≥ 20) oder per Docker
 - **Import aus Dateien**: PDF, Word, LibreOffice, Excel, CSV oder Text – mit Vorschau zum Korrigieren
 - **Automatisch löschen** nach 14 Tagen (einstellbar, einzelne Abläufe behaltbar)
 - **Benutzerkonten mit Rollen** (Nur ansehen, Steuern, Bearbeiten, Admin) und eigener Login-Seite
-- **Vorbereitungs-Todos** mit Rückwärtsrechnung: wann muss spätestens angefangen werden
+- **Vor- & Nachbereitung**: Todos mit Rückwärtsrechnung vor dem Event, Vorwärtsrechnung danach, frei festlegbares „Fertig bis“
 - **Alle Einstellungen per `.env`**
 - **ProPresenter 7.9+**: Restzeit als ProPresenter-Timer und „Jetzt / Danach“ als Stage-Message, dazu ein transparentes Overlay
 - **Stream Deck**: eigenes Companion-Modul, natives Stream-Deck-Plugin oder einfache HTTP-Tasten
@@ -154,15 +154,30 @@ Jede Person bekommt ein eigenes Konto (Benutzername + Passwort). Admins legen Ko
 - **Companion / Stream Deck** melden sich mit dem `API_KEY` aus der `.env` an; dessen Rechte legt `API_KEY_ROLE` fest (Standard: Bearbeiten).
 - `AUTH_ENABLED=false` schaltet die Anmeldung ganz ab – nur in einem abgeschotteten Netz verwenden.
 
-## Vorbereitung (Todos vor dem Start)
+## Vor- & Nachbereitung (Todos)
 
-Über dem Ablauf gibt es den Bereich **Vorbereitung** für Aufgaben, die vor Beginn erledigt sein müssen (Aufbau, Soundcheck, Stream-Test …).
+Über dem Ablauf gibt es zwei Listen: **Vor dem Event** (Aufbau, Soundcheck, Stream-Test …) und **Nach dem Event** (Stream beenden, Abbau, Video hochladen …).
 
-- Pro Aufgabe **Dauer** und optional **Wer** eintragen. ShowCommander rechnet vom Show-Start **rückwärts**, wann jede Aufgabe **spätestens beginnen** muss und bis wann sie fertig sein muss.
-- Die Reihenfolge der Liste ist die Arbeitsreihenfolge – die letzte Aufgabe muss zum Start fertig sein. Sortieren per Drag & Drop.
-- **⇉ parallel:** Die Aufgabe läuft gleichzeitig mit der vorherigen (z. B. Kameras einrichten während des Soundchecks). Beide müssen zur selben Zeit fertig sein; die längere bestimmt den Beginn.
-- **Puffer vor Start:** So viele Minuten vor Beginn soll alles fertig sein.
-- Oben steht, wann die Vorbereitung **spätestens beginnen** muss. Status je Aufgabe: geplant · *jetzt beginnen* (≤ 10 min) · *überfällig* · erledigt.
+**Vor dem Event** – rückwärts vom Show-Start
+- Pro Aufgabe **Dauer** und optional **Wer** eintragen. ShowCommander rechnet aus, wann jede Aufgabe **spätestens beginnen** muss und bis wann sie **fertig** sein muss.
+- Die Reihenfolge ist die Arbeitsreihenfolge – die letzte Aufgabe muss zum Start (minus **Puffer**) fertig sein.
+- Oben steht, wann die Vorbereitung insgesamt spätestens beginnen muss.
+
+**Nach dem Event** – vorwärts ab Show-Ende
+- Startet am (erwarteten) Ende des Ablaufs plus **Puffer**. Läuft die Show länger, verschieben sich die Zeiten automatisch mit.
+- Angezeigt werden „Beginn ab“, „Fertig bis“ und wann alles erledigt ist.
+
+**„Fertig bis“ selbst festlegen**
+- In der Spalte *Fertig bis* einfach eine Uhrzeit eintippen (z. B. `9:00`). Die Aufgabe wird dann an diesem Termin ausgerichtet und **die übrigen Aufgaben rechnen von dort aus weiter** (davor liegende rutschen entsprechend früher).
+- Fest eingetragene Zeiten sind blau markiert. **↺** oder Feld leeren = wieder automatisch berechnen.
+- Uhrzeiten vor dem Event, die nach dem Start lägen, gelten als **Vortag** (z. B. Aufbau Samstag 18:00); Zeiten nach dem Event, die vor dem Show-Ende lägen, als **Folgetag**.
+- Passt ein fester Termin nicht in die Kette (z. B. Soundcheck fertig erst, wenn der Stream-Test schon laufen müsste), erscheint **⚠ passt nicht in die Kette**.
+- Feste Termine werden relativ zum Start gespeichert und wandern deshalb in Vorlagen mit.
+
+**Allgemein**
+- **⇉ parallel:** läuft gleichzeitig mit der vorherigen Aufgabe (gleiche Fertig-Zeit vor dem Event bzw. gleicher Beginn danach).
+- **↑ / ↓** oder Drag & Drop verschiebt Aufgaben zwischen vor und nach dem Event.
+- Status: geplant · *jetzt beginnen* · *läuft jetzt* · *überfällig* · erledigt.
 - Abhaken darf schon die Rolle *Steuern*; gespeichert wird, wer wann abgehakt hat. Die Dashboard-Karte zeigt den Stand.
 - Todos werden in **Vorlagen** übernommen, beim Anwenden einer Vorlage ergänzt und beim Kopieren eines Ablaufs zurückgesetzt.
 

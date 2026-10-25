@@ -157,6 +157,7 @@ app.patch('/api/rundowns/:id', auth, (req, res) => {
   if (b.prompter && typeof b.prompter === 'object') rd.prompter = { ...(rd.prompter || {}), ...b.prompter };
   if (b.keep !== undefined) rd.keep = !!b.keep;
   if (b.todoBuffer !== undefined) rd.todoBuffer = Math.max(0, Math.round(Number(b.todoBuffer) || 0));
+  if (b.todoPostBuffer !== undefined) rd.todoPostBuffer = Math.max(0, Math.round(Number(b.todoPostBuffer) || 0));
   if (b.description !== undefined) rd.description = String(b.description);
   store.save(rd); pushRundown(rd);
   res.json(rd);
@@ -181,6 +182,7 @@ app.post('/api/rundowns/:id/todos', auth, (req, res) => {
   const t = store.newTodo({ ...(req.body.todo || {}), id: undefined, done: false });
   const idx = req.body.afterId ? rd.todos.findIndex(x => x.id === req.body.afterId) : -1;
   if (idx >= 0) rd.todos.splice(idx + 1, 0, t); else rd.todos.push(t);
+  if (t.parallel && !rd.todos.some((x, i) => i < rd.todos.indexOf(t) && x.phase === t.phase)) t.parallel = false;
   store.save(rd); pushRundown(rd);
   res.json(t);
 });
@@ -196,6 +198,12 @@ app.patch('/api/rundowns/:id/todos/:tid', authOp, (req, res) => {
   if (b.who !== undefined) t.who = String(b.who).slice(0, 120);
   if (b.notes !== undefined) t.notes = String(b.notes).slice(0, 2000);
   if (b.parallel !== undefined) t.parallel = !!b.parallel;
+  if (b.phase !== undefined) t.phase = b.phase === 'post' ? 'post' : 'pre';
+  if (b.fixedDue !== undefined) {
+    const v = b.fixedDue === null || b.fixedDue === '' ? null : Number(b.fixedDue);
+    if (v !== null && (!isFinite(v) || Math.abs(v) > 30 * 86400)) return res.status(400).json({ error: 'Ungültige Zeit' });
+    t.fixedDue = v === null ? null : Math.round(v);
+  }
   if (b.done !== undefined) {
     t.done = !!b.done;
     t.doneBy = t.done ? (req.user?.name || req.user?.username || null) : null;
@@ -214,10 +222,11 @@ app.delete('/api/rundowns/:id/todos/:tid', auth, (req, res) => {
 app.post('/api/rundowns/:id/todos-move', auth, (req, res) => {
   const rd = getRd(req, res); if (!rd) return;
   rd.todos = rd.todos || [];
-  const { todoId, beforeId } = req.body || {};
+  const { todoId, beforeId, phase } = req.body || {};
   const i = rd.todos.findIndex(x => x.id === todoId);
   if (i < 0) return res.status(404).json({ error: 'Todo nicht gefunden' });
   const [t] = rd.todos.splice(i, 1);
+  if (phase === 'pre' || phase === 'post') { if (t.phase !== phase) { t.phase = phase; t.fixedDue = null; } }
   const j = beforeId ? rd.todos.findIndex(x => x.id === beforeId) : -1;
   if (j >= 0) rd.todos.splice(j, 0, t); else rd.todos.push(t);
   store.save(rd); pushRundown(rd);
