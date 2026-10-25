@@ -9,10 +9,10 @@ Checkliste für alles, was du brauchst. Nicht alles ist Pflicht: Teile 1 und 2 s
 | Was | Details |
 |---|---|
 | Rechner | Linux-Server, NAS, Mini-PC oder Raspberry Pi 4/5 – läuft 24/7 oder zumindest während der Gottesdienste |
-| Software | **Docker** + **Docker Compose** (Plugin `docker compose`) **oder** Node.js **20 oder neuer** ohne Docker |
+| Software | **Docker** + **Docker Compose** (Plugin `docker compose`, Version **2.24 oder neuer** wegen optionaler `.env`) **oder** Node.js **20 oder neuer** ohne Docker |
 | Abhängigkeiten | Keine – kein `npm install` nötig |
 | Port | **8080/TCP** (änderbar über `PORT` bzw. das Port-Mapping in `docker-compose.yml`) |
-| Speicher | wenige MB; Daten liegen in `./data` (JSON-Dateien) → ins Backup aufnehmen |
+| Festplatte | **mindestens 8 GB** im Container/VM (Docker-Image + Build-Cache); Daten selbst nur wenige MB in `./data` (JSON-Dateien) → ins Backup aufnehmen |
 | Aufbewahrung | Abläufe löschen sich nach 14 Tagen selbst (einstellbar, `RETENTION_DAYS`); Vorlagen bleiben. Wer Abläufe länger braucht: „📌 behalten“ oder Backup von `./data` |
 | Zeitzone | `TZ=Europe/Berlin` ist im Compose-File gesetzt |
 | Uhrzeit | Server-Uhr per NTP synchron halten (alle Bildschirme gleichen sich mit der Server-Uhr ab) |
@@ -23,7 +23,7 @@ Der Server ruft ProPresenter **aktiv** auf. Er muss deshalb **im selben Netz wie
 **Optional: Zugriff von außen / HTTPS**
 - Reverse-Proxy (z. B. Nginx Proxy Manager) mit SSL-Zertifikat
 - Kein WebSocket-Support nötig; Live-Updates laufen über Server-Sent Events. Der Server sendet `X-Accel-Buffering: no`, damit Nginx nicht puffert
-- `APP_PASSWORD` setzen, sobald der Server aus dem Internet erreichbar ist
+- Hinter einem Reverse-Proxy in `.env` `TRUST_PROXY=true` setzen
 
 ## 2. Endgeräte (Pflicht)
 
@@ -96,16 +96,21 @@ Für Bühnenmonitore ist der native Weg (Timer + Stage-Message) einfacher und br
 
 ## 7. Sicherheit (empfohlen)
 
-- `APP_PASSWORD` in `docker-compose.yml` ändern (schützt Editor, Einstellungen und Steuerung)
-- `API_KEY` setzen, wenn Companion/Stream Deck steuern sollen und ein Passwort gesetzt ist – dann im Modul bzw. Plugin eintragen
-- Output, Prompter, Overlay und `/view/…` bleiben ohne Passwort lesbar (für Bühnenbildschirme)
+- `.env` aus `.env.example` anlegen
+- Direkt nach der Installation den **ersten Admin** anlegen (Login-Seite) oder vorher `ADMIN_USERNAME`/`ADMIN_PASSWORD` in `.env` setzen
+- Für jede Person ein **eigenes Konto** mit passender Rolle anlegen (Nur ansehen / Steuern / Bearbeiten / Admin) – keine gemeinsamen Zugänge
+- `API_KEY` in `.env` setzen, wenn Companion/Stream Deck steuern sollen – dann im Modul bzw. Plugin eintragen
+- Output, Prompter, Overlay und `/view/…` bleiben ohne Anmeldung lesbar (für Bühnenbildschirme)
+- `data/` (enthält `users.json` und den ChurchTools-Token) und `.env` nicht weitergeben, aber ins Backup aufnehmen
 - Der ChurchTools-Token bleibt auf dem Server und wird nie an Browser oder Tasten geschickt
 
 ---
 
 ### Kurz-Check vor dem ersten Gottesdienst
 
-- [ ] Server läuft, `http://<server>:8080` öffnet die Übersicht
+- [ ] `.env` angelegt, Server läuft, `http://<server>:8080` zeigt die Login-Seite
+- [ ] Admin-Konto angelegt, Konten für das Team mit passenden Rollen erstellt
+- [ ] Vorbereitungs-Todos mit Dauer eingetragen, Startzeit des Ablaufs gesetzt
 - [ ] ChurchTools-Test grün, Event importiert
 - [ ] Output auf dem Bühnenmonitor geöffnet (Vollbild)
 - [ ] ProPresenter-Test grün, Timer im Stage-Layout sichtbar

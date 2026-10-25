@@ -2,7 +2,7 @@
 const RID = rundownIdFromPath();
 const READONLY_ROUTE = location.pathname.startsWith('/view/');
 let rd = null;
-let canEdit = !READONLY_ROUTE;
+let canEdit = false, canControl = false;
 let pendingRender = false;
 let lastCurrent = null;
 const COLORS = ['', '#e5484d', '#f76b15', '#f5a524', '#30a46c', '#12a594', '#3d8bfd', '#7c5cff', '#d6409f', '#8b93a1'];
@@ -15,10 +15,14 @@ const conn = connectLive(RID, {
 const now = () => conn.now();
 
 // Startinfo (u. a. Berechtigung)
-api('GET', '/api/rundowns/' + encodeURIComponent(RID)).then(d => {
+api('GET', '/api/rundowns/' + encodeURIComponent(RID)).then(async d => {
   canEdit = d.canEdit && !READONLY_ROUTE;
+  canControl = d.canControl && !READONLY_ROUTE;
   document.body.classList.toggle('readonly', !canEdit);
   $$('.edit-only').forEach(el => el.classList.toggle('hidden', !canEdit));
+  $$('.control-only').forEach(el => el.classList.toggle('hidden', !canControl));
+  if (!READONLY_ROUTE) { try { await loadMe(); mountUserMenu($('#userSlot')); } catch { /* öffentliche Ansicht */ } }
+  else $('#bBack') && $('#bBack').classList.add('hidden');
   if (!rd) rd = d;
   scheduleRender();
 }).catch(err => toast(err.message, 'error'));
@@ -71,7 +75,9 @@ function render() {
   const isTpl = !!rd.isTemplate;
   $('#tplBanner').classList.toggle('hidden', !isTpl);
   $('.transport').classList.toggle('hidden', isTpl);
-  ['#lnkOutput', '#lnkPrompter', '#lnkOverlay', '#lnkView', '#bPP', '#bDeck', '#bApplyTpl'].forEach(s => $(s) && $(s).classList.toggle('hidden', isTpl));
+  ['#lnkOutput', '#lnkPrompter', '#lnkOverlay', '#lnkView', '#bApplyTpl'].forEach(s => $(s) && $(s).classList.toggle('hidden', isTpl));
+  ['#bPP', '#bDeck'].forEach(s => $(s) && $(s).classList.toggle('hidden', isTpl || !canControl));
+  $('.transport .controls').classList.toggle('hidden', !canControl);
   $('#bSaveTpl').textContent = isTpl ? 'Vorlage kopieren' : 'Als Vorlage speichern';
   $('#rdStart').closest('label').classList.toggle('hidden', isTpl);
 
@@ -123,7 +129,7 @@ function render() {
       const num = it.skip ? '–' : ++n;
       rows.push(`<tr class="cue${it.skip ? ' skipped' : ''}" data-id="${it.id}" style="${color}">
         <td class="c-handle" draggable="${canEdit}">⋮⋮</td>
-        <td class="c-num"><span class="num" data-arm="${it.id}" title="${canEdit ? 'Klick: als nächsten Punkt vormerken · Doppelklick: sofort starten' : ''}">${num}</span></td>
+        <td class="c-num"><span class="num" data-arm="${it.id}" title="${canControl ? 'Klick: als nächsten Punkt vormerken · Doppelklick: sofort starten' : ''}">${num}</span></td>
         <td class="c-start" data-start="${it.id}"></td>
         <td class="c-dur">${canEdit ? `<input type="text" data-dur="${it.id}" value="${Timing.fmtDur(it.duration * 1000)}">` : `<span class="mono">${Timing.fmtDur(it.duration * 1000)}</span>`}
           ${it.autoNext ? '<div class="muted" style="font-size:10px">AUTO ▶</div>' : ''}</td>
@@ -142,6 +148,7 @@ function render() {
   }
   if (!rd.items.length) rows.push(`<tr><td colspan="${nCols}" class="muted" style="padding:30px;text-align:center">Noch leer. ${canEdit ? 'Füge Punkte hinzu oder verknüpfe ein ChurchTools-Event.' : ''}</td></tr>`);
   $('#tbody').innerHTML = rows.join('');
+  if (window.renderTodos) renderTodos();
   updateLive(true);
 }
 
@@ -202,6 +209,7 @@ function updateLive(force) {
   if (running && T.projectedEnd && !T.relative) { $('#tEnd').textContent = Timing.fmtClock(T.projectedEnd); $('#tEndL').textContent = 'Ende erwartet'; }
   else { $('#tEnd').textContent = T.relative ? Timing.fmtDur(T.plannedEnd) : Timing.fmtClock(T.plannedEnd); $('#tEndL').textContent = T.relative ? 'Gesamtdauer' : 'Ende geplant'; }
   $('#tClock').textContent = Timing.fmtClock(t, true);
+  if (window.updateTodos) updateTodos(t);
   $('#totalInfo').textContent = `${items.filter(Timing.isPlayable).length} Punkte · ${Timing.fmtDur(T.total * 1000)}`;
 
   // Folgen
@@ -255,14 +263,14 @@ tbody.addEventListener('click', e => {
   const det = e.target.closest('[data-detail]');
   if (det) return openDetail(det.dataset.detail);
   const arm = e.target.closest('[data-arm]');
-  if (arm && canEdit) {
+  if (arm && canControl) {
     clearTimeout(arm._t);
     arm._t = setTimeout(() => control('arm', arm.dataset.arm), 220);
   }
 });
 tbody.addEventListener('dblclick', e => {
   const arm = e.target.closest('[data-arm]');
-  if (arm && canEdit) { clearTimeout(arm._t); control('goto', arm.dataset.arm); }
+  if (arm && canControl) { clearTimeout(arm._t); control('goto', arm.dataset.arm); }
 });
 
 // Drag & Drop
@@ -413,7 +421,7 @@ $('#bMinus').onclick = () => control('adjust', -60);
 $('#bEnd').onclick = () => { if (confirm('Show beenden?')) control('end'); };
 
 document.addEventListener('keydown', e => {
-  if (!canEdit) return;
+  if (!canControl) return;
   const a = document.activeElement;
   if (a && (a.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(a.tagName))) return;
   if ($('dialog[open]')) return;

@@ -10,11 +10,12 @@
 <header class="topbar">
   <a class="brand" href="/"><span class="dot"></span>ShowCommander</a>
   <div class="spacer"></div>
-  <button class="btn" id="btnSettings">⚙︎ Einstellungen</button>
+  <button class="btn need-admin" id="btnSettings">⚙︎ Einstellungen</button>
+  <span id="userSlot"></span>
 </header>
 
 <main class="container">
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
+  <div style="display:flex;gap:8px;flex-wrap:wrap" class="need-editor">
     <button class="btn ct" id="btnImport">⬇ Ablauf aus ChurchTools holen</button>
     <button class="btn" id="btnFile">⬆ Aus Datei importieren (PDF, Word, Excel …)</button>
     <button class="btn" id="btnNew">＋ Leerer Ablauf</button>
@@ -24,7 +25,7 @@
   <p class="muted hidden" id="retentionHint" style="margin:-4px 0 12px;font-size:12px"></p>
   <div class="cards" id="list"><div class="muted">Lade …</div></div>
 
-  <h2 class="section" style="display:flex;align-items:center;gap:10px">Vorlagen <button class="btn small" id="btnNewTpl" style="text-transform:none;letter-spacing:0">＋ Neue Vorlage</button></h2>
+  <h2 class="section" style="display:flex;align-items:center;gap:10px">Vorlagen <button class="btn small need-editor" id="btnNewTpl" style="text-transform:none;letter-spacing:0">＋ Neue Vorlage</button></h2>
   <p class="muted" style="margin:-4px 0 12px;font-size:12px">Vorlagen werden nie automatisch gelöscht. Beim ChurchTools- oder Datei-Import werden ihre eigenen Punkte passend einsortiert und Technik-Infos auf gleichnamige Punkte übertragen.</p>
   <div class="cards" id="tplList"></div>
 </main>
@@ -99,9 +100,10 @@ async function loadList() {
         ${r.ct ? `<span class="badge ct">ChurchTools #${r.ct.eventId}</span>` : '<span class="badge">Lokal</span>'}
         ${r.live ? '<span class="badge warn">● live</span>' : ''}
       </div>
+      ${r.todos ? `<div class="meta"><span class="${r.todos.done === r.todos.total ? 'under' : (r.todos.prepStart && Date.now() > r.todos.prepStart ? 'over' : '')}">☑ Vorbereitung ${r.todos.done}/${r.todos.total}${r.todos.done < r.todos.total && r.todos.prepStart && r.startTime ? ' · Beginn spätestens ' + new Date(r.todos.prepStart).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</span></div>` : ''}
       <div class="meta">
         ${r.keep ? '<span class="badge custom">📌 wird behalten</span>' : r.deleteAt ? `<span class="${soon ? 'warnc' : ''}" title="Automatisches Löschen">🗑 löscht sich am ${dateDE(r.deleteAt)}</span>` : ''}
-        <a href="#" data-keep="${r.id}" data-val="${r.keep ? 0 : 1}" style="font-size:12px">${r.keep ? 'nicht mehr behalten' : '📌 behalten'}</a>
+        <a href="#" class="need-editor" data-keep="${r.id}" data-val="${r.keep ? 0 : 1}" style="font-size:12px">${r.keep ? 'nicht mehr behalten' : '📌 behalten'}</a>
       </div>
       <div class="actions">
         <a class="btn primary small" href="/edit/${r.id}">Öffnen</a>
@@ -109,9 +111,9 @@ async function loadList() {
         <a class="btn small" href="/prompter/${r.id}" target="_blank">Prompter</a>
         <a class="btn small" href="/view/${r.id}" target="_blank">Ansicht</a>
         <a class="btn small" href="/overlay/${r.id}" target="_blank">Overlay</a>
-        <button class="btn small" data-dup="${r.id}">Kopieren</button>
-        <button class="btn small" data-mktpl="${r.id}" data-name="${esc(r.name)}">Als Vorlage</button>
-        <button class="btn small danger" data-del="${r.id}" data-name="${esc(r.name)}">Löschen</button>
+        <button class="btn small need-editor" data-dup="${r.id}">Kopieren</button>
+        <button class="btn small need-editor" data-mktpl="${r.id}" data-name="${esc(r.name)}">Als Vorlage</button>
+        <button class="btn small danger need-editor" data-del="${r.id}" data-name="${esc(r.name)}">Löschen</button>
       </div>
     </div>`; }).join('');
   $('#tplList').innerHTML = !tpls.length ? '<div class="muted">Noch keine Vorlagen.</div>' : tpls.map(r => `
@@ -120,10 +122,10 @@ async function loadList() {
       ${r.description ? `<div class="muted" style="font-size:12px">${esc(r.description)}</div>` : ''}
       <div class="meta"><span>${r.itemCount} Punkte</span><span class="badge">Vorlage</span></div>
       <div class="actions">
-        <button class="btn primary small" data-inst="${r.id}" data-name="${esc(r.name.replace(/\s*\((Vorlage|Beispiel)\)$/, ''))}">Neuer Ablauf daraus</button>
-        <a class="btn small" href="/edit/${r.id}">Bearbeiten</a>
-        <button class="btn small" data-dup="${r.id}">Kopieren</button>
-        <button class="btn small danger" data-del="${r.id}" data-name="${esc(r.name)}">Löschen</button>
+        <button class="btn primary small need-editor" data-inst="${r.id}" data-name="${esc(r.name.replace(/\s*\((Vorlage|Beispiel)\)$/, ''))}">Neuer Ablauf daraus</button>
+        <a class="btn small" href="/edit/${r.id}">${roleAtLeast('editor') ? 'Bearbeiten' : 'Ansehen'}</a>
+        <button class="btn small need-editor" data-dup="${r.id}">Kopieren</button>
+        <button class="btn small danger need-editor" data-del="${r.id}" data-name="${esc(r.name)}">Löschen</button>
       </div>
     </div>`).join('');
   $('#evTpl').innerHTML = '<option value="">– keine –</option>' + tpls.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
@@ -258,7 +260,7 @@ $('#btnTest').onclick = async () => {
   } catch (err) { $('#testResult').innerHTML = `<span class="over">✖ ${esc(err.message)}</span>`; }
 };
 
-loadList().catch(err => toast(err.message, 'error'));
+loadMe().then(() => { mountUserMenu($('#userSlot')); return loadList(); }).catch(err => toast(err.message, 'error'));
 </script>
 </body>
 </html>

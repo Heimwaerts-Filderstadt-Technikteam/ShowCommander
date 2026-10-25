@@ -1,20 +1,18 @@
+# Alle Einstellungen stehen in der Datei .env (Vorlage: .env.example)
+#   cp .env.example .env && nano .env
+#   docker compose up -d --build
 services:
   showcommander:
     build: .
     container_name: showcommander
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:${PORT:-8080}"
     volumes:
       - ./data:/data
+    env_file:
+      - path: .env
+        required: false
     environment:
-      TZ: Europe/Berlin
-      # Passwort für Editor & Steuerung (Output/Prompter/Ansicht bleiben ohne Login erreichbar)
-      APP_PASSWORD: "bitte-aendern"
-      # Optional: Schlüssel für Companion/Stream Deck (?key=... oder Header X-API-Key)
-      API_KEY: ""
-      # Abläufe nach X Tagen automatisch löschen (0 = nie). Leer lassen = Einstellung in der App (Standard 14)
-      # RETENTION_DAYS: "14"
-      # Optional: ChurchTools fest hinterlegen (sonst in der App unter Einstellungen)
-      # CT_URL: "https://deinegemeinde.church.tools"
-      # CT_TOKEN: "dein-login-token"
+      DATA_DIR: /data
+      TZ: ${TZ:-Europe/Berlin}

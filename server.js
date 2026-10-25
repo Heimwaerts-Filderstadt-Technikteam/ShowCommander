@@ -1,4 +1,6 @@
 // ShowCommander – Rundown-Server mit ChurchTools-Integration
+// .env zuerst laden, damit alle Module die Werte sehen
+const envFile = require('./lib/env').load();
 const path = require('path');
 const http = require('http');
 const { createApp } = require('./lib/mini');
@@ -11,32 +13,23 @@ const retention = require('./lib/retention');
 const importer = require('./lib/importer');
 const Timing = require('./public/js/timing');
 
+const authMod = require('./lib/auth');
+
 const PORT = Number(process.env.PORT) || 8080;
-const APP_PASSWORD = process.env.APP_PASSWORD || '';
-const API_KEY = process.env.API_KEY || '';
+const HOST = process.env.HOST || '0.0.0.0';
 const PUB = path.join(__dirname, 'public');
 
 const app = createApp();
 
-// ---------- Auth (optional) ----------
-function isAuthed(req) {
-  if (!APP_PASSWORD && !API_KEY) return true;
-  const key = req.get('x-api-key') || req.query.key;
-  if (API_KEY && key === API_KEY) return true;
-  if (APP_PASSWORD) {
-    const h = req.get('authorization') || '';
-    if (h.startsWith('Basic ')) {
-      const [, pw] = Buffer.from(h.slice(6), 'base64').toString().split(/:(.*)/s);
-      if (pw === APP_PASSWORD) return true;
-    }
-  }
-  return false;
-}
-function auth(req, res, next) {
-  if (isAuthed(req)) return next();
-  if (APP_PASSWORD) res.set('WWW-Authenticate', 'Basic realm="ShowCommander", charset="UTF-8"');
-  res.status(401).json({ error: 'Anmeldung erforderlich' });
-}
+// ---------- Anmeldung: Benutzerkonten mit Rollen (lib/auth.js, lib/users.js) ----------
+// Rollen: viewer (ansehen) < operator (steuern) < editor (bearbeiten) < admin (Einstellungen, Benutzer)
+const users = require('./lib/users');
+const isAuthed = authMod.isAuthed;
+const auth = authMod.requireApi('editor');        // Standard für alle ändernden API-Routen
+const authOp = authMod.requireApi('operator');    // Show steuern, Todos abhaken
+const authView = authMod.requireApi('viewer');    // nur lesen
+const authAdmin = authMod.requireApi('admin');    // Einstellungen, Benutzer
+const authPage = authMod.requirePage('viewer');   // Seiten → Weiterleitung auf /login
 
 // ---------- Live-Verteilung ----------
 // Server-Sent Events: jeder Client hält eine offene Verbindung pro Ablauf
@@ -76,14 +69,66 @@ function getRd(req, res) {
 }
 
 const wrap = fn => (req, res) => Promise.resolve(fn(req, res)).catch(err => {
-  console.error(err);
-  res.status(err.status && err.status < 500 ? 400 : 500).json({ error: err.message });
+  if (!err.status || err.status >= 500) console.error(err);
+  res.status(err.status && err.status < 500 ? (err.status === 401 ? 400 : err.status) : 500).json({ error: err.message });
 });
 
 // ---------- Seiten ----------
 const page = f => (req, res) => res.sendFile(path.join(PUB, f));
-app.get('/', auth, page('index.html'));
-app.get('/edit/:id', auth, page('rundown.html'));
+app.get('/', authPage, page('index.html'));
+app.get('/edit/:id', authPage, page('rundown.html'));
+
+// ---------- Login & Benutzer ----------
+app.get('/login', (req, res) => {
+  if (isAuthed(req)) { res.statusCode = 302; res.setHeader('Location', authMod.safeNext(req.query.next)); return res.end(); }
+  page('login.html')(req, res);
+});
+app.get('/api/auth', (req, res) => {
+  const u = authMod.currentUser(req);
+  res.json({ enabled: authMod.cfg().enabled, setup: authMod.needsSetup(), user: u, roles: users.ROLES });
+});
+app.post('/api/login', (req, res) => {
+  const r = authMod.login(req, res);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  res.json({ ok: true, user: r.user, next: authMod.safeNext(req.body?.next) });
+});
+app.post('/api/setup', wrap(async (req, res) => {
+  const r = authMod.setup(req, res);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  res.json({ ok: true, user: r.user, next: '/' });
+}));
+app.post('/api/logout', (req, res) => { authMod.clearSession(req, res); res.json({ ok: true }); });
+app.get('/logout', (req, res) => {
+  authMod.clearSession(req, res);
+  res.statusCode = 302; res.setHeader('Location', '/login'); res.end();
+});
+
+// Eigenes Konto
+app.patch('/api/me', authView, wrap(async (req, res) => {
+  const me = req.user;
+  if (me.id === 'api' || me.id === '-') return res.status(400).json({ error: 'Kein Benutzerkonto' });
+  const u = users.byId(me.id);
+  const { currentPassword, newPassword, name } = req.body || {};
+  const patch = {};
+  if (name !== undefined) patch.name = name;
+  if (newPassword) {
+    if (!users.checkLogin(u.username, currentPassword || '')) return res.status(400).json({ error: 'Aktuelles Passwort ist falsch' });
+    patch.password = newPassword;
+  }
+  const out = users.update(me.id, patch, { actorId: me.id });
+  if (newPassword) authMod.refreshSession(req, res, me.id);
+  res.json(out);
+}));
+
+// Benutzerverwaltung (Admin)
+app.get('/api/users', authAdmin, (req, res) => res.json(users.list()));
+app.post('/api/users', authAdmin, wrap(async (req, res) => res.json(users.create(req.body || {}))));
+app.patch('/api/users/:uid', authAdmin, wrap(async (req, res) => {
+  const out = users.update(req.params.uid, req.body || {}, { actorId: req.user.id });
+  if (req.params.uid === req.user.id && req.body?.password) authMod.refreshSession(req, res, req.user.id);
+  res.json(out);
+}));
+app.delete('/api/users/:uid', authAdmin, wrap(async (req, res) => { users.remove(req.params.uid, { actorId: req.user.id }); res.json({ ok: true }); }))
 app.get('/view/:id', page('rundown.html'));
 app.get('/output/:id', page('output.html'));
 app.get('/prompter/:id', page('prompter.html'));
@@ -91,7 +136,7 @@ app.get('/overlay/:id', page('overlay.html'));
 app.static('/static', PUB);
 
 // ---------- API: Rundowns ----------
-app.get('/api/rundowns', (req, res) => res.json(store.list()));
+app.get('/api/rundowns', authView, (req, res) => res.json(store.list()));
 
 app.post('/api/rundowns', auth, (req, res) => {
   const rd = store.create({ name: req.body.name, startTime: req.body.startTime || null });
@@ -100,7 +145,7 @@ app.post('/api/rundowns', auth, (req, res) => {
 
 app.get('/api/rundowns/:id', (req, res) => {
   const rd = getRd(req, res); if (!rd) return;
-  res.json({ ...publicRundown(rd), serverTime: Date.now(), canEdit: isAuthed(req) });
+  res.json({ ...publicRundown(rd), serverTime: Date.now(), canEdit: authMod.hasRole(req, 'editor'), canControl: authMod.hasRole(req, 'operator') });
 });
 
 app.patch('/api/rundowns/:id', auth, (req, res) => {
@@ -111,6 +156,7 @@ app.patch('/api/rundowns/:id', auth, (req, res) => {
   if (Array.isArray(b.columns)) rd.columns = b.columns.map(c => ({ id: c.id || store.uid('c'), name: String(c.name || '') }));
   if (b.prompter && typeof b.prompter === 'object') rd.prompter = { ...(rd.prompter || {}), ...b.prompter };
   if (b.keep !== undefined) rd.keep = !!b.keep;
+  if (b.todoBuffer !== undefined) rd.todoBuffer = Math.max(0, Math.round(Number(b.todoBuffer) || 0));
   if (b.description !== undefined) rd.description = String(b.description);
   store.save(rd); pushRundown(rd);
   res.json(rd);
@@ -119,6 +165,68 @@ app.patch('/api/rundowns/:id', auth, (req, res) => {
 app.delete('/api/rundowns/:id', auth, (req, res) => {
   const rd = getRd(req, res); if (!rd) return;
   store.remove(rd.id);
+  res.json({ ok: true });
+});
+
+// ---------- Vorbereitungs-Todos ----------
+function getTodo(rd, req, res) {
+  rd.todos = rd.todos || [];
+  const t = rd.todos.find(x => x.id === req.params.tid);
+  if (!t) { res.status(404).json({ error: 'Todo nicht gefunden' }); return null; }
+  return t;
+}
+app.post('/api/rundowns/:id/todos', auth, (req, res) => {
+  const rd = getRd(req, res); if (!rd) return;
+  rd.todos = rd.todos || [];
+  const t = store.newTodo({ ...(req.body.todo || {}), id: undefined, done: false });
+  const idx = req.body.afterId ? rd.todos.findIndex(x => x.id === req.body.afterId) : -1;
+  if (idx >= 0) rd.todos.splice(idx + 1, 0, t); else rd.todos.push(t);
+  store.save(rd); pushRundown(rd);
+  res.json(t);
+});
+// Abhaken darf schon „Steuern“, alles andere braucht „Bearbeiten“
+app.patch('/api/rundowns/:id/todos/:tid', authOp, (req, res) => {
+  const rd = getRd(req, res); if (!rd) return;
+  const t = getTodo(rd, req, res); if (!t) return;
+  const b = req.body || {};
+  const keys = Object.keys(b);
+  if (keys.some(k => k !== 'done') && !authMod.hasRole(req, 'editor')) return res.status(403).json({ error: 'Nur abhaken erlaubt' });
+  if (b.title !== undefined) t.title = String(b.title).slice(0, 200);
+  if (b.duration !== undefined) t.duration = Math.max(0, Math.round(Number(b.duration) || 0));
+  if (b.who !== undefined) t.who = String(b.who).slice(0, 120);
+  if (b.notes !== undefined) t.notes = String(b.notes).slice(0, 2000);
+  if (b.parallel !== undefined) t.parallel = !!b.parallel;
+  if (b.done !== undefined) {
+    t.done = !!b.done;
+    t.doneBy = t.done ? (req.user?.name || req.user?.username || null) : null;
+    t.doneAt = t.done ? new Date().toISOString() : null;
+  }
+  store.save(rd); pushRundown(rd);
+  res.json(t);
+});
+app.delete('/api/rundowns/:id/todos/:tid', auth, (req, res) => {
+  const rd = getRd(req, res); if (!rd) return;
+  if (!getTodo(rd, req, res)) return;
+  rd.todos = rd.todos.filter(x => x.id !== req.params.tid);
+  store.save(rd); pushRundown(rd);
+  res.json({ ok: true });
+});
+app.post('/api/rundowns/:id/todos-move', auth, (req, res) => {
+  const rd = getRd(req, res); if (!rd) return;
+  rd.todos = rd.todos || [];
+  const { todoId, beforeId } = req.body || {};
+  const i = rd.todos.findIndex(x => x.id === todoId);
+  if (i < 0) return res.status(404).json({ error: 'Todo nicht gefunden' });
+  const [t] = rd.todos.splice(i, 1);
+  const j = beforeId ? rd.todos.findIndex(x => x.id === beforeId) : -1;
+  if (j >= 0) rd.todos.splice(j, 0, t); else rd.todos.push(t);
+  store.save(rd); pushRundown(rd);
+  res.json({ ok: true });
+});
+app.post('/api/rundowns/:id/todos-reset', auth, (req, res) => {
+  const rd = getRd(req, res); if (!rd) return;
+  for (const t of rd.todos || []) { t.done = false; t.doneBy = null; t.doneAt = null; }
+  store.save(rd); pushRundown(rd);
   res.json({ ok: true });
 });
 
@@ -149,7 +257,7 @@ app.post('/api/templates/:id/instantiate', auth, (req, res) => {
 });
 
 // ---------- Aufbewahrung ----------
-app.post('/api/retention/run', auth, (req, res) => res.json({ deleted: retention.cleanup() }));
+app.post('/api/retention/run', authAdmin, (req, res) => res.json({ deleted: retention.cleanup() }));
 
 // ---------- Datei-Import (PDF/DOCX/XLSX/CSV/TXT) ----------
 // Schritt 1: Datei in Zeilen/Zellen zerlegen (PDF wird schon im Browser in Zeilen umgewandelt)
@@ -186,6 +294,7 @@ app.post('/api/rundowns/:id/duplicate', auth, (req, res) => {
   delete copy.id; delete copy.live;
   copy.name = rd.name + ' (Kopie)';
   copy.items = copy.items.map(i => ({ ...i, id: store.uid('i') }));
+  copy.todos = (copy.todos || []).map(t => ({ ...t, id: undefined, done: false }));
   res.json(store.create(copy));
 });
 
@@ -283,7 +392,7 @@ app.post('/api/rundowns/:id/link', auth, wrap(async (req, res) => {
 }));
 
 // Show-Steuerung (Companion: POST oder GET /api/rundowns/<id|active>/control/next)
-app.all('/api/rundowns/:id/control/:cmd', auth, (req, res) => {
+app.all('/api/rundowns/:id/control/:cmd', authOp, (req, res) => {
   if (!['GET', 'POST'].includes(req.method)) return res.status(405).end();
   const rd = getRd(req, res); if (!rd) return;
   const arg = req.body?.arg ?? req.query.arg ?? req.query.sec ?? req.query.id;
@@ -323,22 +432,22 @@ app.get('/api/rundowns/:id/export.csv', (req, res) => {
 const settingsOut = () => {
   const s = store.getSettings();
   return { ctUrl: s.ctUrl, hasToken: !!s.ctToken, ctFromEnv: s.ctFromEnv, pp: s.pp, ppStatus: pp.status(),
-    retentionDays: s.retentionDays, retentionFromEnv: s.retentionFromEnv };
+    retentionDays: s.retentionDays, retentionFromEnv: s.retentionFromEnv, ppFromEnv: s.ppFromEnv };
 };
-app.get('/api/settings', auth, (req, res) => res.json(settingsOut()));
-app.put('/api/settings', auth, (req, res) => {
+app.get('/api/settings', authAdmin, (req, res) => res.json(settingsOut()));
+app.put('/api/settings', authAdmin, (req, res) => {
   store.setSettings(req.body || {});
   res.json(settingsOut());
 });
-app.post('/api/settings/pp-test', auth, wrap(async (req, res) => res.json(await pp.test())));
+app.post('/api/settings/pp-test', authAdmin, wrap(async (req, res) => res.json(await pp.test())));
 // Aktuellen Stand sofort an ProPresenter schicken (z. B. nach Neustart von ProPresenter)
-app.post('/api/rundowns/:id/pp-push', auth, (req, res) => {
+app.post('/api/rundowns/:id/pp-push', authOp, (req, res) => {
   const rd = getRd(req, res); if (!rd) return;
   activeId = rd.id;
   pp.onLive(rd, show.summary(rd));
   res.json({ ok: true });
 });
-app.post('/api/settings/test', auth, wrap(async (req, res) => res.json(await ct.testConnection())));
+app.post('/api/settings/test', authAdmin, wrap(async (req, res) => res.json(await ct.testConnection())));
 
 app.get('/api/ct/events', auth, wrap(async (req, res) => {
   res.json(await ct.listEvents({ from: req.query.from, to: req.query.to }));
@@ -388,9 +497,15 @@ setInterval(() => {
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { store.flushAll(); process.exit(0); });
 
 templates.seedDefaults();
+{
+  const seeded = users.seedFromEnv(require('./lib/env'));
+  if (seeded) console.log(`Erster Admin „${seeded.username}“ aus .env angelegt.`);
+}
 retention.start();
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(`ShowCommander läuft auf http://localhost:${PORT}`);
-  if (!APP_PASSWORD) console.log('Hinweis: kein APP_PASSWORD gesetzt – Bearbeiten ist ohne Anmeldung möglich.');
+  if (envFile) console.log(`Einstellungen aus ${envFile} geladen.`);
+  if (!authMod.cfg().enabled) console.log('WARNUNG: AUTH_ENABLED=false – jeder im Netz hat Admin-Rechte.');
+  else if (authMod.needsSetup()) console.log(`Noch kein Benutzer: http://localhost:${PORT}/login öffnen und ersten Admin anlegen (oder ADMIN_USERNAME/ADMIN_PASSWORD in .env setzen).`);
 });

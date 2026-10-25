@@ -5,7 +5,7 @@ Steuert einen ShowCommander-Server (Rundown mit ChurchTools-Integration).
 **Konfiguration**
 - **Server / Port**: Adresse des ShowCommander-Servers, z. B. `192.168.1.20` und `8080`
 - **Ablauf-ID**: `active` = immer der zuletzt gesteuerte Ablauf. Alternativ die ID aus der Editor-URL `/edit/<ID>`
-- **API-Key**: nur nötig, wenn auf dem Server `API_KEY` (oder `APP_PASSWORD`) gesetzt ist – dann hier den `API_KEY` eintragen
+- **API-Key**: der `API_KEY` aus der `.env` des Servers (nötig, sobald dort Benutzerkonten aktiv sind). Seine Rechte legt `API_KEY_ROLE` fest – für alle Aktionen mindestens `editor`, für reines Showcalling reicht `operator`
 
 **Presets**
 - *Steuerung*: GO mit Restzeit, Zurück, Pause, ±30 s, ±1 min, Ende, ChurchTools-Sync, An ProPresenter senden

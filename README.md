@@ -26,6 +26,9 @@ Keine npm-Abhängigkeiten – läuft mit reinem Node.js (≥ 20) oder per Docker
 - **Vorlagen**: wiederkehrende eigene Punkte und Technik-Infos automatisch in jeden Ablauf einsortieren
 - **Import aus Dateien**: PDF, Word, LibreOffice, Excel, CSV oder Text – mit Vorschau zum Korrigieren
 - **Automatisch löschen** nach 14 Tagen (einstellbar, einzelne Abläufe behaltbar)
+- **Benutzerkonten mit Rollen** (Nur ansehen, Steuern, Bearbeiten, Admin) und eigener Login-Seite
+- **Vorbereitungs-Todos** mit Rückwärtsrechnung: wann muss spätestens angefangen werden
+- **Alle Einstellungen per `.env`**
 - **ProPresenter 7.9+**: Restzeit als ProPresenter-Timer und „Jetzt / Danach“ als Stage-Message, dazu ein transparentes Overlay
 - **Stream Deck**: eigenes Companion-Modul, natives Stream-Deck-Plugin oder einfache HTTP-Tasten
 
@@ -80,6 +83,31 @@ In der **Vorschau** kannst du jeden Punkt an- oder abwählen, zwischen Punkt/Abs
 
 ## Starten
 
+### Einstellungen in `.env`
+
+Alle Einstellungen (Port, erster Admin, API-Key, ChurchTools, ProPresenter, Aufbewahrung …) stehen in einer Datei `.env`.
+Die Vorlage mit Erklärungen zu jeder Variable ist `.env.example`:
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Die `.env` wird nicht ins Git-Repo übernommen (steht in `.gitignore`). Sie funktioniert mit Docker und auch beim Start mit `node server.js`.
+Werte, die in `.env` gesetzt sind (z. B. `CT_URL`, `PP_HOST`), sind in der App fest und dort nicht änderbar.
+
+### Docker (Linux-Server)
+
+```bash
+cp .env.example .env    # anpassen
+docker compose up -d --build
+```
+
+Nach Änderungen an `.env` reicht `docker compose up -d`. Daten (Abläufe, Benutzer, Einstellungen) liegen in `./data`.
+
+Hinter Nginx Proxy Manager: einfach als Proxy-Host anlegen und in `.env` `TRUST_PROXY=true` setzen. Die Live-Updates laufen per
+Server-Sent Events; der Server setzt `X-Accel-Buffering: no`, damit Nginx nicht puffert. Websocket-Support ist nicht nötig.
+
 ### Lokal testen
 
 ```bash
@@ -90,16 +118,12 @@ node server.js
 Ohne ChurchTools ausprobieren: in einem zweiten Terminal `node test/mock-churchtools.js` starten und in den
 Einstellungen URL `http://localhost:4010` mit Token `testtoken` eintragen.
 
-### Docker (Linux-Server)
+### Erster Start
 
-```bash
-docker compose up -d --build
-```
+Beim ersten Aufruf gibt es noch keine Benutzer. Entweder
 
-In `docker-compose.yml` vorher `APP_PASSWORD` ändern. Daten liegen in `./data` (je Ablauf eine JSON-Datei).
-
-Hinter Nginx Proxy Manager: einfach als Proxy-Host anlegen. Die Live-Updates laufen per Server-Sent Events;
-der Server setzt `X-Accel-Buffering: no`, damit Nginx nicht puffert. Websocket-Support ist nicht nötig.
+- **in der App:** `http://<server>:8080` öffnen → die Login-Seite zeigt „Admin-Konto anlegen“ (wer zuerst kommt, wird Admin – also gleich nach der Installation erledigen), oder
+- **per `.env`:** `ADMIN_USERNAME` und `ADMIN_PASSWORD` setzen – der Admin wird beim Start angelegt, solange es noch keine Benutzer gibt. Danach kannst du das Passwort aus der `.env` wieder löschen.
 
 ## ChurchTools einrichten
 
@@ -107,17 +131,40 @@ der Server setzt `X-Accel-Buffering: no`, damit Nginx nicht puffert. Websocket-S
 2. Dessen **Login-Token** kopieren (in ChurchTools in der Personenansicht des Benutzers bei den Berechtigungen bzw. Login-Einstellungen)
 3. In ShowCommander → ⚙︎ Einstellungen: URL (`https://deinegemeinde.church.tools`) und Token eintragen → „Verbindung testen“
 
-Alternativ per Umgebungsvariablen `CT_URL` und `CT_TOKEN`. Der Token bleibt auf dem Server und wird nie an den Browser geschickt.
+Alternativ fest in der `.env` über `CT_URL` und `CT_TOKEN`. Der Token bleibt auf dem Server und wird nie an den Browser geschickt.
 
 Verwendete Endpunkte: `GET /api/events`, `GET /api/events/{id}`, `GET /api/events/{id}/agenda`, `GET /api/whoami`.
 
-## Zugriffsschutz
+## Benutzer & Rollen
 
-| Bereich | Ohne `APP_PASSWORD` | Mit `APP_PASSWORD` |
-|---|---|---|
-| Übersicht, Editor, Einstellungen, Steuerung | offen | Login (Benutzername egal) |
-| `/output/…`, `/prompter/…`, `/view/…` | offen | offen (nur lesen) |
-| Companion-Steuerung | offen | Login oder `API_KEY` |
+Jede Person bekommt ein eigenes Konto (Benutzername + Passwort). Admins legen Konten in der App an: Benutzermenü oben rechts → **Benutzer verwalten**.
+
+| Rolle | Darf |
+|---|---|
+| **Nur ansehen** | Übersicht und Abläufe inkl. Vorbereitung ansehen |
+| **Steuern** | zusätzlich Show bedienen (Start/Weiter/Pause/±Zeit), Vorbereitungs-Todos abhaken, an ProPresenter senden |
+| **Bearbeiten** | zusätzlich Abläufe, Vorlagen und Todos anlegen/ändern/löschen, Import aus ChurchTools und Dateien |
+| **Admin** | zusätzlich Einstellungen (ChurchTools, ProPresenter, Aufbewahrung) und Benutzerverwaltung |
+
+- Jeder kann unter **Mein Konto** Namen und Passwort ändern; nach einer Passwortänderung werden andere Geräte abgemeldet.
+- Admins können Passwörter neu setzen, Konten sperren oder löschen. Rollenänderungen und Sperren wirken sofort.
+- Es bleibt immer mindestens ein aktiver Admin.
+- Passwörter werden mit scrypt gehasht in `data/users.json` gespeichert. Nach 10 Fehlversuchen von einer IP ist die Anmeldung 15 Minuten gesperrt.
+- **Ohne Anmeldung erreichbar** (für Bühnenmonitore): `/output/…`, `/prompter/…`, `/overlay/…` und die geteilte Ansicht `/view/…`.
+- **Companion / Stream Deck** melden sich mit dem `API_KEY` aus der `.env` an; dessen Rechte legt `API_KEY_ROLE` fest (Standard: Bearbeiten).
+- `AUTH_ENABLED=false` schaltet die Anmeldung ganz ab – nur in einem abgeschotteten Netz verwenden.
+
+## Vorbereitung (Todos vor dem Start)
+
+Über dem Ablauf gibt es den Bereich **Vorbereitung** für Aufgaben, die vor Beginn erledigt sein müssen (Aufbau, Soundcheck, Stream-Test …).
+
+- Pro Aufgabe **Dauer** und optional **Wer** eintragen. ShowCommander rechnet vom Show-Start **rückwärts**, wann jede Aufgabe **spätestens beginnen** muss und bis wann sie fertig sein muss.
+- Die Reihenfolge der Liste ist die Arbeitsreihenfolge – die letzte Aufgabe muss zum Start fertig sein. Sortieren per Drag & Drop.
+- **⇉ parallel:** Die Aufgabe läuft gleichzeitig mit der vorherigen (z. B. Kameras einrichten während des Soundchecks). Beide müssen zur selben Zeit fertig sein; die längere bestimmt den Beginn.
+- **Puffer vor Start:** So viele Minuten vor Beginn soll alles fertig sein.
+- Oben steht, wann die Vorbereitung **spätestens beginnen** muss. Status je Aufgabe: geplant · *jetzt beginnen* (≤ 10 min) · *überfällig* · erledigt.
+- Abhaken darf schon die Rolle *Steuern*; gespeichert wird, wer wann abgehakt hat. Die Dashboard-Karte zeigt den Stand.
+- Todos werden in **Vorlagen** übernommen, beim Anwenden einer Vorlage ergänzt und beim Kopieren eines Ablaufs zurückgesetzt.
 
 ## ProPresenter
 
@@ -208,7 +255,7 @@ Für Companion „Generic HTTP“ oder Stream-Deck-Plugins wie „API Ninja“. 
 | ChurchTools-Sync | `POST …/sync` |
 | An ProPresenter senden | `POST …/pp-push` |
 
-Mit `API_KEY` einfach `?key=DEIN_KEY` anhängen oder Header `X-API-Key` setzen. GET funktioniert für die Steuerbefehle ebenfalls.
+Bei aktiver Anmeldung den `API_KEY` aus der `.env` als `?key=DEIN_KEY` anhängen oder als Header `X-API-Key` setzen. GET funktioniert für die Steuerbefehle ebenfalls.
 Status: `GET /api/rundowns/active/state` (Restzeit, Jetzt, Danach, Über/Unter, Punktliste …).
 
 ## Live-Daten für eigene Tools

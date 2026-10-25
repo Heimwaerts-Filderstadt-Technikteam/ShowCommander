@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Anmelden – ShowCommander</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<style>
+  html, body { height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+    background:
+      radial-gradient(900px 500px at 15% -10%, rgba(61, 139, 253, .14), transparent 60%),
+      radial-gradient(700px 500px at 110% 110%, rgba(229, 72, 77, .10), transparent 60%),
+      var(--bg);
+  }
+  .login { width: 100%; max-width: 380px; }
+  .logo { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 26px; }
+  .logo .mark {
+    width: 44px; height: 44px; border-radius: 11px; display: grid; place-items: center;
+    background: linear-gradient(145deg, #e5484d, #b3262b); box-shadow: 0 8px 24px rgba(229, 72, 77, .35);
+  }
+  .logo .mark svg { width: 20px; height: 20px; margin-left: 3px; }
+  .logo .name { font-size: 22px; font-weight: 700; letter-spacing: .2px; }
+  .logo .name small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-top: 1px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 26px 24px 22px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+  }
+  .panel h1 { font-size: 18px; margin: 0 0 4px; }
+  .panel p.sub { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+  .panel input[type=text], .panel input[type=password] { padding: 10px 12px; font-size: 15px; }
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 44px !important; }
+  .pw-toggle {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: transparent;
+    color: var(--muted); cursor: pointer; padding: 6px; border-radius: 6px; line-height: 0;
+  }
+  .pw-toggle:hover { color: var(--text); background: var(--panel2); }
+  .row-between { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 18px; }
+  .submit { width: 100%; justify-content: center; padding: 11px 12px; font-size: 15px; font-weight: 600; }
+  .submit[disabled] { opacity: .6; cursor: wait; }
+  .error {
+    display: none; background: #3a1517; border: 1px solid #6b2226; color: #ffb4b6; border-radius: 8px;
+    padding: 9px 12px; font-size: 13px; margin-bottom: 16px;
+  }
+  .error.show { display: block; }
+  .shake { animation: shake .35s; }
+  @keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+  .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 18px; }
+  .hint { background: #1a1630; border: 1px solid #4b3a99; color: #c4b5ff; border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 18px; }
+  .strength { height: 4px; border-radius: 2px; background: var(--line); margin-top: 6px; overflow: hidden; }
+  .strength > div { height: 100%; width: 0; transition: width .2s, background .2s; }
+</style>
+</head>
+<body>
+<main class="login">
+  <div class="logo">
+    <div class="mark"><svg viewBox="0 0 20 20" fill="#fff"><path d="M4 2.5v15l13-7.5z"/></svg></div>
+    <div class="name">ShowCommander<small>Ablauf &amp; Showcalling</small></div>
+  </div>
+
+  <!-- Anmelden -->
+  <form class="panel" id="loginForm" autocomplete="on" novalidate>
+    <h1>Anmelden</h1>
+    <p class="sub">Melde dich mit deinem Benutzerkonto an.</p>
+    <div class="error" id="loginErr" role="alert"></div>
+    <label class="field"><span>Benutzername</span>
+      <input type="text" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus></label>
+    <label class="field"><span>Passwort</span>
+      <div class="pw-wrap">
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+        <button type="button" class="pw-toggle" data-toggle="password" aria-label="Passwort anzeigen" title="Passwort anzeigen">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </label>
+    <div class="row-between">
+      <label class="check" style="margin:0;font-size:13px"><input type="checkbox" id="remember" checked> Angemeldet bleiben</label>
+    </div>
+    <button class="btn primary submit" type="submit" id="loginBtn">Anmelden</button>
+  </form>
+
+  <!-- Ersteinrichtung -->
+  <form class="panel hidden" id="setupForm" autocomplete="off" novalidate>
+    <h1>Willkommen 👋</h1>
+    <p class="sub">Es gibt noch keine Benutzer. Lege jetzt das erste Admin-Konto an – weitere Benutzer kannst du danach in der App einladen.</p>
+    <div class="hint">Wer diese Seite zuerst öffnet, wird Admin. Richte das Konto also gleich nach der Installation ein.</div>
+    <div class="error" id="setupErr" role="alert"></div>
+    <label class="field"><span>Dein Name</span><input type="text" id="sName" autocomplete="name" placeholder="z. B. Max Mustermann"></label>
+    <label class="field"><span>Benutzername</span><input type="text" id="sUser" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="z. B. max"></label>
+    <label class="field"><span>Passwort (mind. 8 Zeichen)</span>
+      <div class="pw-wrap">
+        <input type="password" id="sPw" autocomplete="new-password">
+        <button type="button" class="pw-toggle" data-toggle="sPw" aria-label="Passwort anzeigen" title="Passwort anzeigen">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="strength"><div id="sStrength"></div></div>
+    </label>
+    <label class="field"><span>Passwort wiederholen</span><input type="password" id="sPw2" autocomplete="new-password"></label>
+    <button class="btn primary submit" type="submit" id="setupBtn">Admin-Konto anlegen</button>
+  </form>
+
+  <div class="foot">Bühnenmonitore, Prompter und geteilte Ansichten funktionieren ohne Anmeldung.</div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const next = new URLSearchParams(location.search).get('next') || '/';
+
+function showError(id, msg, form) {
+  const el = $(id);
+  el.textContent = msg; el.classList.add('show');
+  form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake');
+}
+async function post(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Fehler ' + res.status);
+  return data;
+}
+
+document.querySelectorAll('[data-toggle]').forEach(b => b.onclick = () => {
+  const inp = document.getElementById(b.dataset.toggle);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  b.setAttribute('aria-label', inp.type === 'password' ? 'Passwort anzeigen' : 'Passwort verbergen');
+  inp.focus();
+});
+
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const u = $('#username').value.trim(), p = $('#password').value;
+  $('#loginErr').classList.remove('show');
+  if (!u || !p) return showError('#loginErr', 'Bitte Benutzername und Passwort eingeben.', e.target);
+  const btn = $('#loginBtn'); btn.disabled = true; btn.textContent = 'Anmelden …';
+  try {
+    const r = await post('/api/login', { username: u, password: p, remember: $('#remember').checked, next });
+    location.replace(r.next || '/');
+  } catch (err) {
+    showError('#loginErr', err.message, e.target);
+    $('#password').select();
+    btn.disabled = false; btn.textContent = 'Anmelden';
+  }
+});
+
+function strength(pw) {
+  let s = 0;
+  if (pw.length >= 8) s++; if (pw.length >= 12) s++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++; if (/\d/.test(pw)) s++; if (/[^A-Za-z0-9]/.test(pw)) s++;
+  return s;
+}
+$('#sPw').addEventListener('input', e => {
+  const s = strength(e.target.value), bar = $('#sStrength');
+  bar.style.width = Math.min(100, s * 20) + '%';
+  bar.style.background = s <= 2 ? 'var(--live)' : s === 3 ? 'var(--warn)' : 'var(--ok)';
+});
+$('#setupForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  $('#setupErr').classList.remove('show');
+  const body = { name: $('#sName').value.trim(), username: $('#sUser').value.trim(), password: $('#sPw').value };
+  if (!body.username) return showError('#setupErr', 'Bitte einen Benutzernamen wählen.', e.target);
+  if (body.password.length < 8) return showError('#setupErr', 'Das Passwort muss mindestens 8 Zeichen haben.', e.target);
+  if (body.password !== $('#sPw2').value) return showError('#setupErr', 'Die Passwörter stimmen nicht überein.', e.target);
+  const btn = $('#setupBtn'); btn.disabled = true;
+  try { await post('/api/setup', body); location.replace('/'); }
+  catch (err) { showError('#setupErr', err.message, e.target); btn.disabled = false; }
+});
+
+fetch('/api/auth', { credentials: 'same-origin' }).then(r => r.json()).then(a => {
+  if (a.user) return location.replace(next);
+  if (a.setup) { $('#loginForm').classList.add('hidden'); $('#setupForm').classList.remove('hidden'); $('#sName').focus(); }
+}).catch(() => {});
+</script>
+</body>
+</html>

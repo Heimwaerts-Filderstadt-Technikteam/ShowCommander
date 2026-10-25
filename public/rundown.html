@@ -8,7 +8,7 @@
 </head>
 <body>
 <header class="topbar">
-  <a class="btn small edit-only" href="/" id="bBack" title="Zurück zur Übersicht aller Abläufe">← Übersicht</a>
+  <a class="btn small" href="/" id="bBack" title="Zurück zur Übersicht aller Abläufe">← Übersicht</a>
   <input class="rd-title" id="rdName" value="" spellcheck="false">
   <label class="muted" style="display:flex;align-items:center;gap:6px;font-size:12px">Start
     <input type="datetime-local" id="rdStart" style="width:auto;padding:4px 6px">
@@ -19,8 +19,9 @@
   <a class="btn small" id="lnkPrompter" target="_blank">Prompter</a>
   <a class="btn small" id="lnkOverlay" target="_blank" title="Transparentes Overlay (für NDI/OBS/vMix oder Web-Quelle)">Overlay</a>
   <a class="btn small" id="lnkView" target="_blank">Ansicht teilen</a>
-  <button class="btn small edit-only" id="bPP" title="Aktuellen Stand sofort an ProPresenter senden">→ ProPresenter</button>
-  <button class="btn small" id="bDeck" title="Adressen für Stream Deck / Companion">Stream Deck</button>
+  <button class="btn small control-only hidden" id="bPP" title="Aktuellen Stand sofort an ProPresenter senden">→ ProPresenter</button>
+  <button class="btn small control-only hidden" id="bDeck" title="Adressen für Stream Deck / Companion">Stream Deck</button>
+  <span id="userSlot"></span>
 </header>
 
 <section class="toolbar hidden" id="tplBanner" style="background:#1a1630;border-bottom-color:#4b3a99">
@@ -29,7 +30,7 @@
 </section>
 
 <section class="transport">
-  <div class="controls edit-only">
+  <div class="controls control-only hidden">
     <button class="btn go" id="bGo" title="Start / Nächster Punkt (Leertaste)">▶ Start</button>
     <button class="btn icon" id="bPrev" title="Vorheriger Punkt (B)">⏮</button>
     <button class="btn icon" id="bPause" title="Pause / Weiter (P)">⏸</button>
@@ -71,6 +72,19 @@
   <span class="info" id="totalInfo"></span>
   <a class="btn small" id="bCsv">CSV</a>
   <button class="btn small" onclick="print()">Drucken / PDF</button>
+</section>
+
+<section class="todos" id="todoPanel">
+  <div class="todo-head">
+    <button class="todo-toggle" id="todoToggle" aria-expanded="true"><span class="chev">▾</span> Vorbereitung</button>
+    <span class="todo-sum" id="todoSum"></span>
+    <span class="spacer"></span>
+    <label class="muted need-editor-inline" style="font-size:12px;display:flex;align-items:center;gap:6px" title="So viele Minuten vor Show-Start soll alles fertig sein">
+      Puffer vor Start <input type="text" id="todoBuffer" class="mono" style="width:56px;padding:3px 6px"> min</label>
+    <button class="btn small need-editor-inline" id="todoReset" title="Alle Häkchen entfernen">Häkchen zurücksetzen</button>
+    <button class="btn small need-editor-inline" id="todoAdd">＋ Todo</button>
+  </div>
+  <div class="todo-body" id="todoBody"></div>
 </section>
 
 <div class="rd-wrap">
@@ -144,5 +158,6 @@
 <script src="/static/js/importmap.js"></script>
 <script src="/static/js/import-ui.js"></script>
 <script src="/static/js/editor.js"></script>
+<script src="/static/js/todos.js"></script>
 </body>
 </html>

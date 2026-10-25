@@ -103,5 +103,49 @@
     return null;
   }
 
-  return { compute, remainingMs, fmtDur, fmtClock, parseDur, isPlayable, hardStartMs };
+  /**
+   * Vorbereitungs-Todos rückwärts vom Show-Start planen.
+   * Reihenfolge = Arbeitsreihenfolge; das letzte Todo muss (abzüglich Puffer) zum Start fertig sein.
+   * Todos mit parallel=true laufen gleichzeitig mit dem vorherigen und enden zur selben Zeit.
+   * Liefert pro Todo: latestStart, due (Fertig-bis) als ms (oder relativ zu 0 = Start, wenn keine Startzeit),
+   * state: 'done' | 'overdue' (Beginn verpasst) | 'soon' (≤ 10 min bis spätestem Beginn) | 'ok'
+   */
+  function computeTodos(rd, now) {
+    now = now ?? Date.now();
+    const todos = rd.todos || [];
+    const base = rd.startTime ? Date.parse(rd.startTime) : null;
+    const rel = base == null;
+    const end0 = (rel ? 0 : base) - (Number(rd.todoBuffer) || 0) * 1000;
+    // Gruppen bilden (parallel hängt an der vorherigen Gruppe)
+    const groups = [];
+    for (const t of todos) {
+      if (t.parallel && groups.length) groups[groups.length - 1].push(t); else groups.push([t]);
+    }
+    const out = {};
+    let cursor = end0;
+    for (let g = groups.length - 1; g >= 0; g--) {
+      const grp = groups[g];
+      const maxDur = Math.max(0, ...grp.map(t => (t.duration || 0) * 1000));
+      for (const t of grp) out[t.id] = { due: cursor, latestStart: cursor - (t.duration || 0) * 1000 };
+      cursor -= maxDur;
+    }
+    let open = 0, overdue = 0, firstOpen = null;
+    for (const t of todos) {
+      const r = out[t.id];
+      if (t.done) r.state = 'done';
+      else {
+        open++;
+        if (!rel && now > r.latestStart) { r.state = 'overdue'; overdue++; }
+        else if (!rel && now > r.latestStart - 10 * 60e3) r.state = 'soon';
+        else r.state = 'ok';
+        if (firstOpen == null || r.latestStart < firstOpen) firstOpen = r.latestStart;
+      }
+    }
+    return {
+      items: out, relative: rel, prepStart: todos.length ? cursor : null, prepEnd: end0,
+      total: todos.length, open, overdue, done: todos.length - open, firstOpenStart: firstOpen,
+    };
+  }
+
+  return { compute, computeTodos, remainingMs, fmtDur, fmtClock, parseDur, isPlayable, hardStartMs };
 });
