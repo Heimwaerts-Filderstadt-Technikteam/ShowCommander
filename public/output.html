@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Output – ShowCommander</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<style>
+  html, body { height: 100%; overflow: hidden; cursor: none; }
+  body.showcursor { cursor: default; }
+  .out { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; padding: 3vh 4vw; gap: 2vh; transition: background .3s; }
+  .out.warn { background: #2a2006; }
+  .out.over { background: #3a0d10; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; font-size: 3.2vh; color: var(--muted); }
+  .top .clock { font-family: var(--mono); color: var(--text); font-size: 4.5vh; }
+  .mid { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; min-height: 0; }
+  .cur { font-size: 6vh; font-weight: 700; line-height: 1.15; max-width: 92vw; }
+  .who { font-size: 3.4vh; color: var(--muted); margin-top: .6vh; }
+  .big { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 700; font-size: 26vh; line-height: 1; letter-spacing: -.02em; margin: 2vh 0; }
+  .big.warn { color: var(--warn); }
+  .big.over { color: var(--live); animation: blink 1s steps(2, start) infinite; }
+  @keyframes blink { to { opacity: .55; } }
+  .bar { width: 80vw; height: 1.2vh; background: #ffffff18; border-radius: 1vh; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--ok); transition: width .25s linear; }
+  .bar.warn > div { background: var(--warn); } .bar.over > div { background: var(--live); }
+  .bottom { display: flex; justify-content: space-between; gap: 4vw; font-size: 3.4vh; align-items: flex-end; }
+  .bottom .lbl { font-size: 1.8vh; text-transform: uppercase; letter-spacing: .15em; color: var(--muted); }
+  .bottom .next { flex: 1; min-width: 0; }
+  .bottom .next div:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bottom .ou { text-align: right; font-family: var(--mono); }
+  .state { position: fixed; top: 1.2vh; left: 50%; transform: translateX(-50%); font-size: 2vh; letter-spacing: .2em; text-transform: uppercase; color: var(--warn); }
+  .opts { position: fixed; bottom: 10px; left: 10px; display: none; gap: 6px; }
+  body.showcursor .opts { display: flex; }
+</style>
+</head>
+<body>
+<div class="out" id="out">
+  <div class="top"><div id="rdName"></div><div class="clock" id="clock">--:--:--</div></div>
+  <div class="mid">
+    <div class="cur" id="cur">–</div>
+    <div class="who" id="who"></div>
+    <div class="big" id="big">--:--</div>
+    <div class="bar" id="bar"><div></div></div>
+  </div>
+  <div class="bottom">
+    <div class="next"><div class="lbl">Als Nächstes</div><div id="next">–</div></div>
+    <div class="ou"><div class="lbl">Über / Unter</div><div id="ou">--:--</div></div>
+  </div>
+</div>
+<div class="state" id="state"></div>
+<div class="opts">
+  <a class="btn small" href="/">← Übersicht</a>
+  <button class="btn small" onclick="document.documentElement.requestFullscreen()">Vollbild</button>
+  <button class="btn small" onclick="toggleMode()">Countup/Countdown</button>
+</div>
+<script src="/static/js/timing.js"></script>
+<script src="/static/js/common.js"></script>
+<script>
+const RID = rundownIdFromPath();
+const params = new URLSearchParams(location.search);
+let countUp = params.get('mode') === 'up';
+let rd = null;
+const conn = connectLive(RID, { onRundown(d) { rd = d; } });
+function toggleMode() { countUp = !countUp; }
+
+let cursorTimer;
+document.addEventListener('mousemove', () => {
+  document.body.classList.add('showcursor'); clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => document.body.classList.remove('showcursor'), 2500);
+});
+
+function tick() {
+  const t = conn.now();
+  $('#clock').textContent = Timing.fmtClock(t, true);
+  if (!rd) return;
+  $('#rdName').textContent = rd.name;
+  const L = rd.live || { status: 'stopped' };
+  const items = rd.items;
+  const idx = items.findIndex(i => i.id === L.currentId);
+  const cur = L.status !== 'stopped' && idx >= 0 ? items[idx] : null;
+  const nextId = L.nextId || (cur ? items.slice(idx + 1).find(Timing.isPlayable)?.id : items.find(Timing.isPlayable)?.id);
+  const next = items.find(i => i.id === nextId);
+  const T = Timing.compute(rd, L, t);
+
+  $('#cur').textContent = cur ? (cur.title || '–') : (L.status === 'stopped' ? 'Noch nicht gestartet' : '–');
+  $('#who').textContent = cur ? [cur.who, cur.info].filter(Boolean).join(' · ') : '';
+  $('#next').textContent = next ? (next.title || '–') + (next.who ? ' – ' + next.who : '') : (cur ? 'Ende' : '–');
+  $('#state').textContent = L.status === 'paused' ? 'Pausiert' : '';
+
+  let cls = '';
+  if (cur) {
+    const rem = Timing.remainingMs(cur, L, t);
+    cls = rem < 0 ? 'over' : rem < 60000 ? 'warn' : '';
+    const elapsed = cur.duration * 1000 - rem;
+    $('#big').textContent = countUp ? Timing.fmtDur(elapsed) : Timing.fmtDur(rem, { ceil: true });
+    const pct = cur.duration ? Math.min(100, Math.max(0, elapsed / (cur.duration * 10))) : 0;
+    $('#bar').firstElementChild.style.width = pct + '%';
+  } else {
+    $('#big').textContent = '--:--';
+    $('#bar').firstElementChild.style.width = '0%';
+  }
+  $('#big').className = 'big ' + cls;
+  $('#bar').className = 'bar ' + cls;
+  $('#out').className = 'out ' + (cls === 'over' ? 'over' : '');
+  const ou = T.overUnder;
+  $('#ou').textContent = ou == null ? '--:--' : Timing.fmtDur(ou, { plus: true });
+  $('#ou').className = ou == null ? '' : ou > 0 ? 'over' : 'under';
+}
+setInterval(tick, 200);
+</script>
+</body>
+</html>

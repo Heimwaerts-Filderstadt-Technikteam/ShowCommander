@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prompter – ShowCommander</title>
+<link rel="stylesheet" href="/static/css/app.css">
+<style>
+  html, body { background: #000; height: 100%; overflow: hidden; }
+  #scroller { height: 100vh; overflow-y: scroll; scrollbar-width: none; }
+  #scroller::-webkit-scrollbar { display: none; }
+  #text { padding: 45vh 8vw 80vh; color: #fff; font-weight: 600; line-height: 1.35; }
+  .mirror #text { transform: scaleX(-1); }
+  .p-item { margin-bottom: 1.6em; opacity: .55; transition: opacity .3s; }
+  .p-item.current { opacity: 1; }
+  .p-head { font-size: .45em; letter-spacing: .12em; text-transform: uppercase; color: var(--warn); margin-bottom: .3em; font-family: var(--sans); }
+  .p-item.current .p-head { color: var(--live); }
+  .p-section { font-size: .5em; color: #7c5cff; text-transform: uppercase; letter-spacing: .15em; border-top: 2px solid #7c5cff55; padding-top: .5em; margin: 1.2em 0; }
+  .p-body { white-space: pre-wrap; }
+  .p-body.empty { color: #666; font-style: italic; font-size: .6em; }
+  .marker { position: fixed; top: 45vh; left: 0; right: 0; height: 0; pointer-events: none; }
+  .marker::before, .marker::after { content: ''; position: absolute; top: -14px; border: 14px solid transparent; }
+  .marker::before { left: 0; border-left-color: var(--live); }
+  .marker::after { right: 0; border-right-color: var(--live); }
+  .hud { position: fixed; top: 10px; right: 10px; display: flex; gap: 6px; align-items: center; opacity: 0; transition: opacity .3s; font-size: 12px; }
+  body:hover .hud { opacity: 1; }
+  .hud .muted { background: #000a; padding: 4px 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div id="scroller"><div id="text"></div></div>
+<div class="marker"></div>
+<div class="hud">
+  <a class="btn small" href="/">← Übersicht</a>
+  <span class="muted" id="hudInfo"></span>
+  <button class="btn small" data-a="slower">− Tempo</button>
+  <button class="btn small" data-a="play">▶/❚❚</button>
+  <button class="btn small" data-a="faster">＋ Tempo</button>
+  <button class="btn small" data-a="smaller">A−</button>
+  <button class="btn small" data-a="bigger">A＋</button>
+  <button class="btn small" data-a="mirror">Spiegeln</button>
+  <button class="btn small" data-a="follow">Folgen</button>
+  <button class="btn small" data-a="full">Vollbild</button>
+</div>
+<script src="/static/js/timing.js"></script>
+<script src="/static/js/common.js"></script>
+<script>
+const RID = rundownIdFromPath();
+const store = (() => { try { return JSON.parse(localStorage.getItem('prompter') || '{}'); } catch { return {}; } })();
+const cfg = Object.assign({ size: 64, speed: 40, mirror: false, follow: true }, store);
+const saveCfg = () => { try { localStorage.setItem('prompter', JSON.stringify(cfg)); } catch {} };
+let rd = null, playing = false, lastCur = null, lastHtml = '';
+
+connectLive(RID, { onRundown(d) { rd = d; renderText(); }, onLive() { followCurrent(); } });
+
+function renderText() {
+  if (!rd) return;
+  let html = '';
+  for (const it of rd.items) {
+    if (it.kind === 'header') { html += `<div class="p-section" data-id="${it.id}">${esc(it.title)}</div>`; continue; }
+    if (it.skip) continue;
+    const body = it.script || it.ctNote || '';
+    html += `<div class="p-item" data-id="${it.id}"><div class="p-head">${esc(it.title)}${it.who ? ' · ' + esc(it.who) : ''}</div>
+      ${body ? `<div class="p-body">${esc(body)}</div>` : ''}</div>`;
+  }
+  if (html !== lastHtml) { $('#text').innerHTML = html; lastHtml = html; lastCur = null; }
+  applyCfg(); followCurrent();
+}
+
+function followCurrent() {
+  if (!rd) return;
+  const id = rd.live && rd.live.status !== 'stopped' ? rd.live.currentId : null;
+  $$('.p-item').forEach(el => el.classList.toggle('current', el.dataset.id === id));
+  if (id && id !== lastCur && cfg.follow) {
+    const el = $(`.p-item[data-id="${id}"]`);
+    if (el) $('#scroller').scrollTo({ top: el.offsetTop - innerHeight * 0.45 + 10, behavior: 'smooth' });
+  }
+  lastCur = id;
+}
+
+function applyCfg() {
+  $('#text').style.fontSize = cfg.size + 'px';
+  document.body.classList.toggle('mirror', cfg.mirror);
+  $('#hudInfo').textContent = `Tempo ${cfg.speed} · ${cfg.size}px${cfg.follow ? ' · folgt' : ''}${playing ? ' · läuft' : ''}`;
+  saveCfg();
+}
+
+// Weiches Scrollen
+let lastT = performance.now(), acc = 0;
+function loop(t) {
+  const dt = (t - lastT) / 1000; lastT = t;
+  if (playing) { acc += cfg.speed * dt; const px = Math.floor(acc); if (px) { $('#scroller').scrollTop += px; acc -= px; } }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function act(a) {
+  if (a === 'slower') cfg.speed = Math.max(0, cfg.speed - 10);
+  if (a === 'faster') cfg.speed = Math.min(400, cfg.speed + 10);
+  if (a === 'smaller') cfg.size = Math.max(20, cfg.size - 6);
+  if (a === 'bigger') cfg.size = Math.min(200, cfg.size + 6);
+  if (a === 'mirror') cfg.mirror = !cfg.mirror;
+  if (a === 'follow') { cfg.follow = !cfg.follow; lastCur = null; followCurrent(); }
+  if (a === 'play') playing = !playing;
+  if (a === 'full') document.documentElement.requestFullscreen();
+  applyCfg();
+}
+$('.hud').addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (b) act(b.dataset.a); });
+document.addEventListener('keydown', e => {
+  const map = { ' ': 'play', ArrowUp: 'slower', ArrowDown: 'faster', '-': 'smaller', '+': 'bigger', m: 'mirror', f: 'follow' };
+  if (map[e.key]) { e.preventDefault(); act(map[e.key]); }
+  if (e.key === 'PageDown') $('#scroller').scrollBy({ top: innerHeight * .5, behavior: 'smooth' });
+  if (e.key === 'PageUp') $('#scroller').scrollBy({ top: -innerHeight * .5, behavior: 'smooth' });
+});
+applyCfg();
+</script>
+</body>
+</html>

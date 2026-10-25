@@ -1,0 +1,36 @@
+{
+  "$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
+  "type": "connection",
+  "id": "showcommander",
+  "name": "showcommander",
+  "shortname": "showcommander",
+  "description": "Showcalling für ShowCommander: Start, Weiter, Pause, Zeit anpassen, Restzeit und Punkte auf den Tasten",
+  "version": "1.0.0",
+  "license": "MIT",
+  "repository": "git+https://github.com/Heimwaerts-Filderstadt-Technikteam/ShowCommander.git",
+  "bugs": "https://github.com/Heimwaerts-Filderstadt-Technikteam/ShowCommander/issues",
+  "maintainers": [
+    {
+      "name": "ShowCommander"
+    }
+  ],
+  "runtime": {
+    "type": "node18",
+    "api": "nodejs-ipc",
+    "apiVersion": "0.0.0",
+    "entrypoint": "../src/main.js"
+  },
+  "legacyIds": [],
+  "manufacturer": "ShowCommander",
+  "products": [
+    "ShowCommander"
+  ],
+  "keywords": [
+    "rundown",
+    "ablauf",
+    "churchtools",
+    "timer",
+    "showcaller",
+    "church"
+  ]
+}

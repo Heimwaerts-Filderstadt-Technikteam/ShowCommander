@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ShowCommander</title>
+<style>
+  body { background: #2d2d2d; color: #d8d8d8; font: 12px -apple-system, "Segoe UI", sans-serif; margin: 0; padding: 8px 12px; }
+  .row { display: flex; align-items: center; margin: 6px 0; }
+  .row label { width: 96px; flex-shrink: 0; color: #9a9a9a; }
+  .row input, .row select { flex: 1; background: #3d3d3d; color: #fff; border: 1px solid #555; border-radius: 3px; padding: 4px 6px; font: inherit; min-width: 0; }
+  h4 { margin: 12px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #9a9a9a; }
+  .hint { color: #888; font-size: 11px; margin: 2px 0 6px 96px; }
+  button { background: #4a4a4a; color: #fff; border: 1px solid #666; border-radius: 3px; padding: 4px 10px; cursor: pointer; }
+  #testResult { margin-left: 8px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <h4>Verbindung (gilt für alle Tasten)</h4>
+  <div class="row"><label>Server</label><input id="server" placeholder="192.168.1.20:8080"></div>
+  <div class="row"><label>Ablauf-ID</label><input id="rundown" placeholder="active"></div>
+  <div class="hint">„active“ = zuletzt gesteuerter Ablauf</div>
+  <div class="row"><label>API-Key</label><input id="apiKey" type="password" placeholder="nur falls gesetzt"></div>
+  <div class="row"><label></label><button id="test">Verbindung testen</button><span id="testResult"></span></div>
+
+  <div id="opt-adjust" class="hidden">
+    <h4>Diese Taste</h4>
+    <div class="row"><label>Sekunden</label><input id="seconds" type="number" step="10" value="60"></div>
+    <div class="hint">positiv = verlängern, negativ = kürzen</div>
+  </div>
+  <div id="opt-goto" class="hidden">
+    <h4>Diese Taste</h4>
+    <div class="row"><label>Punkt-Nr.</label><input id="cue" type="number" min="1" value="1"></div>
+    <div class="hint">Nummer wie im Editor (übersprungene Punkte zählen nicht)</div>
+  </div>
+  <div id="opt-display" class="hidden">
+    <h4>Diese Taste</h4>
+    <div class="row"><label>Anzeige</label>
+      <select id="mode">
+        <option value="remaining">Restzeit</option>
+        <option value="current">Aktueller Punkt</option>
+        <option value="next">Nächster Punkt (Taste = Weiter)</option>
+        <option value="overunder">Über / Unter</option>
+        <option value="end">Ende (geplant / erwartet)</option>
+        <option value="clock">Uhrzeit</option>
+      </select>
+    </div>
+  </div>
+
+<script>
+let ws, uuid, actionInfo, settings = {}, globals = {};
+const $ = id => document.getElementById(id);
+const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+
+function saveGlobals() {
+  globals = { server: $('server').value.trim(), rundown: $('rundown').value.trim() || 'active', apiKey: $('apiKey').value.trim() };
+  send({ event: 'setGlobalSettings', context: uuid, payload: globals });
+  send({ event: 'sendToPlugin', action: actionInfo.action, context: uuid, payload: { globalSettings: globals } });
+}
+function saveSettings() {
+  settings = { seconds: Number($('seconds').value || 60), cue: Number($('cue').value || 1), mode: $('mode').value };
+  send({ event: 'setSettings', context: uuid, payload: settings });
+}
+
+// eslint-disable-next-line no-unused-vars
+function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+  uuid = inUUID;
+  actionInfo = JSON.parse(inActionInfo);
+  settings = actionInfo.payload?.settings || {};
+  const a = actionInfo.action.split('.').pop();
+  ['adjust', 'goto', 'display'].forEach(x => $('opt-' + x).classList.toggle('hidden', x !== a));
+  if (settings.seconds != null) $('seconds').value = settings.seconds;
+  if (settings.cue != null) $('cue').value = settings.cue;
+  if (settings.mode) $('mode').value = settings.mode;
+
+  ws = new WebSocket('ws://127.0.0.1:' + inPort);
+  ws.onopen = () => {
+    send({ event: inRegisterEvent, uuid: inUUID });
+    send({ event: 'getGlobalSettings', context: inUUID });
+  };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.event === 'didReceiveGlobalSettings') {
+      globals = m.payload?.settings || {};
+      $('server').value = globals.server || ''; $('rundown').value = globals.rundown || 'active'; $('apiKey').value = globals.apiKey || '';
+    }
+    if (m.event === 'sendToPropertyInspector' && m.payload?.testResult) $('testResult').textContent = m.payload.testResult;
+  };
+}
+
+['server', 'rundown', 'apiKey'].forEach(id => $(id).addEventListener('change', saveGlobals));
+['seconds', 'cue', 'mode'].forEach(id => $(id).addEventListener('change', saveSettings));
+$('test').onclick = () => { saveGlobals(); $('testResult').textContent = '…'; setTimeout(() => send({ event: 'sendToPlugin', action: actionInfo.action, context: uuid, payload: { test: true } }), 200); };
+</script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overlay – ShowCommander</title>
+<style>
+  /* 1920x1080-Overlay mit transparentem Hintergrund.
+     Parameter: ?layout=lower|timer|corner  &bg=transparent|black|green  &scale=1  &title=0 */
+  :root { --live: #e5484d; --warn: #f5a524; --ok: #30a46c; --scale: 1; }
+  html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; background: transparent;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #fff; }
+  body.bg-black { background: #000; } body.bg-green { background: #00b140; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .wrap { position: absolute; transform-origin: bottom left; transform: scale(var(--scale)); transition: opacity .3s; }
+  .hide { opacity: 0; }
+
+  /* Bauchbinde unten links */
+  .lower { left: 4vw; bottom: 7vh; display: flex; align-items: stretch; border-radius: .6vw; overflow: hidden;
+    box-shadow: 0 1vh 3vh rgba(0,0,0,.45); max-width: 80vw; }
+  .lower .time { background: #111a; backdrop-filter: blur(6px); padding: 1.2vh 1.6vw; font-size: 5.5vh; font-weight: 700; display: flex; align-items: center; }
+  .lower .text { background: rgba(14,16,19,.82); padding: 1.2vh 1.8vw; display: flex; flex-direction: column; justify-content: center; min-width: 20vw; }
+  .lower .t1 { font-size: 3.4vh; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lower .t2 { font-size: 2.2vh; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lower .bar { height: .5vh; background: #ffffff22; } .lower .bar > div { height: 100%; background: var(--ok); }
+
+  /* Nur Timer, groß mittig */
+  .timer { inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; transform-origin: center; }
+  .timer .big { font-size: 30vh; font-weight: 800; line-height: 1; text-shadow: 0 .5vh 3vh rgba(0,0,0,.6); }
+  .timer .t1 { font-size: 5vh; font-weight: 700; margin-bottom: 2vh; text-shadow: 0 .3vh 1.5vh rgba(0,0,0,.6); }
+
+  /* Kleine Ecke oben rechts */
+  .corner { right: 2vw; top: 3vh; background: rgba(14,16,19,.85); padding: 1vh 1.4vw; border-radius: .6vw; font-size: 4.5vh; font-weight: 700; transform-origin: top right; }
+
+  .warn { color: var(--warn); } .over { color: var(--live); }
+  .bar.warn > div { background: var(--warn); } .bar.over > div { background: var(--live); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="/static/js/timing.js"></script>
+<script src="/static/js/common.js"></script>
+<script>
+const RID = rundownIdFromPath();
+const q = new URLSearchParams(location.search);
+const layout = q.get('layout') || 'lower';
+const showTitle = q.get('title') !== '0';
+document.body.classList.add('bg-' + (q.get('bg') || 'transparent'));
+document.documentElement.style.setProperty('--scale', q.get('scale') || 1);
+
+const tpl = {
+  lower: `<div class="wrap lower" id="w"><div class="time mono" id="tm">--:--</div><div style="display:flex;flex-direction:column">
+          <div class="text"><div class="t1" id="t1"></div><div class="t2" id="t2"></div></div><div class="bar" id="bar"><div></div></div></div></div>`,
+  timer: `<div class="wrap timer" id="w">${showTitle ? '<div class="t1" id="t1"></div>' : ''}<div class="big mono" id="tm">--:--</div></div>`,
+  corner: `<div class="wrap corner mono" id="w"><span id="tm">--:--</span></div>`,
+};
+$('#root').innerHTML = tpl[layout] || tpl.lower;
+
+let rd = null;
+const conn = connectLive(RID, { onRundown(d) { rd = d; } });
+
+setInterval(() => {
+  if (!rd) return;
+  const t = conn.now(), L = rd.live || {}, items = rd.items;
+  const idx = items.findIndex(i => i.id === L.currentId);
+  const cur = L.status && L.status !== 'stopped' && idx >= 0 ? items[idx] : null;
+  $('#w').classList.toggle('hide', !cur);
+  if (!cur) return;
+  const next = items.slice(idx + 1).find(Timing.isPlayable);
+  const rem = Timing.remainingMs(cur, L, t);
+  const cls = rem < 0 ? 'over' : rem < 60000 ? 'warn' : '';
+  $('#tm').textContent = Timing.fmtDur(rem, { ceil: true });
+  const tm = $('#tm');
+  if (tm.dataset.base == null) tm.dataset.base = tm.className;
+  tm.className = (tm.dataset.base + ' ' + cls).trim();
+  if ($('#t1')) $('#t1').textContent = cur.title;
+  if ($('#t2')) $('#t2').textContent = [cur.who, next ? 'Danach: ' + next.title : ''].filter(Boolean).join('  ·  ');
+  if ($('#bar')) {
+    $('#bar').className = 'bar ' + cls;
+    $('#bar').firstElementChild.style.width = (cur.duration ? Math.min(100, Math.max(0, 100 - rem / (cur.duration * 10))) : 0) + '%';
+  }
+}, 200);
+</script>
+</body>
+</html>

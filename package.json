@@ -1,0 +1,19 @@
+{
+  "name": "showcommander",
+  "version": "1.0.0",
+  "description": "Selbst gehostete Rundown-/Ablauf-App mit ChurchTools-Integration, Live-Timer, Output- und Prompter-Ansicht",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "mock": "node test/mock-churchtools.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Heimwaerts-Filderstadt-Technikteam/ShowCommander.git"
+  }
+}

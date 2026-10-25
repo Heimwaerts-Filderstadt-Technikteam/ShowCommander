@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShowCommander</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/"><span class="dot"></span>ShowCommander</a>
+  <div class="spacer"></div>
+  <button class="btn" id="btnSettings">⚙︎ Einstellungen</button>
+</header>
+
+<main class="container">
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn ct" id="btnImport">⬇ Ablauf aus ChurchTools holen</button>
+    <button class="btn" id="btnFile">⬆ Aus Datei importieren (PDF, Word, Excel …)</button>
+    <button class="btn" id="btnNew">＋ Leerer Ablauf</button>
+  </div>
+
+  <h2 class="section">Abläufe</h2>
+  <p class="muted hidden" id="retentionHint" style="margin:-4px 0 12px;font-size:12px"></p>
+  <div class="cards" id="list"><div class="muted">Lade …</div></div>
+
+  <h2 class="section" style="display:flex;align-items:center;gap:10px">Vorlagen <button class="btn small" id="btnNewTpl" style="text-transform:none;letter-spacing:0">＋ Neue Vorlage</button></h2>
+  <p class="muted" style="margin:-4px 0 12px;font-size:12px">Vorlagen werden nie automatisch gelöscht. Beim ChurchTools- oder Datei-Import werden ihre eigenen Punkte passend einsortiert und Technik-Infos auf gleichnamige Punkte übertragen.</p>
+  <div class="cards" id="tplList"></div>
+</main>
+
+<!-- ChurchTools-Import -->
+<dialog id="dlgImport">
+  <div class="dlg-head"><h3>Event aus ChurchTools wählen</h3><button class="btn icon" data-close>✕</button></div>
+  <div class="dlg-body">
+    <div class="row2" style="margin-bottom:12px">
+      <label class="field"><span>Von</span><input type="date" id="evFrom"></label>
+      <label class="field"><span>Bis</span><input type="date" id="evTo"></label>
+    </div>
+    <label class="field"><span>Vorlage anwenden (optional)</span><select id="evTpl"><option value="">– keine –</option></select></label>
+    <input type="text" id="evFilter" placeholder="Filtern (z. B. Gottesdienst)" style="margin-bottom:10px">
+    <div class="event-list" id="evList"></div>
+  </div>
+  <div class="dlg-foot"><button class="btn" id="evReload">Neu laden</button><button class="btn" data-close>Abbrechen</button></div>
+</dialog>
+
+<!-- Einstellungen -->
+<dialog id="dlgSettings">
+  <div class="dlg-head"><h3>Einstellungen</h3><button class="btn icon" data-close>✕</button></div>
+  <div class="dlg-body">
+    <p class="muted" style="margin-top:0">ChurchTools-Zugang. Den Login-Token findest du in ChurchTools in der Personenansicht des Benutzers bei den Berechtigungen bzw. Login-Einstellungen. Am besten einen eigenen Benutzer anlegen, der nur Events und Abläufe lesen darf.</p>
+    <p id="envHint" class="badge warn hidden" style="margin-bottom:12px">URL und Token kommen aus Umgebungsvariablen (docker-compose) und können hier nicht geändert werden.</p>
+    <label class="field"><span>ChurchTools-URL</span><input type="url" id="ctUrl" placeholder="https://deinegemeinde.church.tools"></label>
+    <label class="field"><span>Login-Token</span><input type="password" id="ctToken" placeholder="unverändert lassen"></label>
+    <div style="display:flex;gap:8px;align-items:center"><button class="btn small" id="btnTest">ChurchTools testen</button><span id="testResult" class="muted"></span></div>
+
+    <h3 style="margin:24px 0 6px;font-size:14px">Automatisch löschen</h3>
+    <label class="field"><span>Abläufe löschen nach … Tagen (ab Gottesdienst bzw. letzter Änderung, 0 = nie). Vorlagen und „behalten“-Abläufe sind ausgenommen.</span>
+      <input type="text" id="retDays" class="mono" style="width:120px"></label>
+
+    <h3 style="margin:24px 0 6px;font-size:14px">ProPresenter (ab 7.9)</h3>
+    <p class="muted" style="margin-top:0;font-size:12px">Schickt die Restzeit des aktuellen Punkts als ProPresenter-Timer und „Jetzt / Danach“ als Stage-Message.
+      In ProPresenter: Einstellungen → Netzwerk → „Netzwerk aktivieren“ und Port notieren. Den Timer kannst du dann in jedes Stage-Layout oder als Timer-Token auf eine Folie legen.</p>
+    <label class="check"><input type="checkbox" id="ppEnabled"> ProPresenter-Anbindung aktiv</label>
+    <div class="row2">
+      <label class="field"><span>IP / Hostname des ProPresenter-Rechners</span><input type="text" id="ppHost" placeholder="192.168.1.50"></label>
+      <label class="field"><span>Netzwerk-Port</span><input type="text" id="ppPort" placeholder="1025" class="mono"></label>
+    </div>
+    <label class="field"><span>Name des Timers in ProPresenter (wird angelegt, falls nicht vorhanden)</span><input type="text" id="ppTimer" placeholder="ShowCommander"></label>
+    <label class="check"><input type="checkbox" id="ppStage"> Stage-Message senden</label>
+    <label class="field"><span>Text der Stage-Message – Platzhalter: {current} {who} {info} {next} {nextWho} {end} {number} {rundown}</span><input type="text" id="ppTpl"></label>
+    <label class="check"><input type="checkbox" id="ppClear"> Bei Show-Ende Timer zurücksetzen und Stage-Message löschen</label>
+    <div style="display:flex;gap:8px;align-items:center"><button class="btn small" id="btnPpTest">ProPresenter testen</button><span id="ppResult" class="muted"></span></div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn primary" id="btnSaveSettings">Speichern</button>
+  </div>
+</dialog>
+
+<script src="/static/js/timing.js"></script>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/importmap.js"></script>
+<script src="/static/js/import-ui.js"></script>
+<script>
+let allList = [];
+const dateDE = iso => new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+async function loadList() {
+  allList = await api('GET', '/api/rundowns');
+  const list = allList.filter(r => !r.isTemplate), tpls = allList.filter(r => r.isTemplate);
+  const box = $('#list');
+  box.innerHTML = !list.length ? '<div class="muted">Noch keine Abläufe. Hol dir einen aus ChurchTools, importiere eine Datei oder leg einen leeren an.</div>' : list.map(r => {
+    const soon = r.deleteAt && Date.parse(r.deleteAt) - Date.now() < 3 * 864e5;
+    return `
+    <div class="card">
+      <h3>${esc(r.name)}</h3>
+      <div class="meta">
+        ${r.startTime ? `<span>${esc(fmtDateTime(r.startTime))}</span>` : ''}
+        <span>${r.itemCount} Punkte</span>
+        ${r.ct ? `<span class="badge ct">ChurchTools #${r.ct.eventId}</span>` : '<span class="badge">Lokal</span>'}
+        ${r.live ? '<span class="badge warn">● live</span>' : ''}
+      </div>
+      <div class="meta">
+        ${r.keep ? '<span class="badge custom">📌 wird behalten</span>' : r.deleteAt ? `<span class="${soon ? 'warnc' : ''}" title="Automatisches Löschen">🗑 löscht sich am ${dateDE(r.deleteAt)}</span>` : ''}
+        <a href="#" data-keep="${r.id}" data-val="${r.keep ? 0 : 1}" style="font-size:12px">${r.keep ? 'nicht mehr behalten' : '📌 behalten'}</a>
+      </div>
+      <div class="actions">
+        <a class="btn primary small" href="/edit/${r.id}">Öffnen</a>
+        <a class="btn small" href="/output/${r.id}" target="_blank">Output</a>
+        <a class="btn small" href="/prompter/${r.id}" target="_blank">Prompter</a>
+        <a class="btn small" href="/view/${r.id}" target="_blank">Ansicht</a>
+        <a class="btn small" href="/overlay/${r.id}" target="_blank">Overlay</a>
+        <button class="btn small" data-dup="${r.id}">Kopieren</button>
+        <button class="btn small" data-mktpl="${r.id}" data-name="${esc(r.name)}">Als Vorlage</button>
+        <button class="btn small danger" data-del="${r.id}" data-name="${esc(r.name)}">Löschen</button>
+      </div>
+    </div>`; }).join('');
+  $('#tplList').innerHTML = !tpls.length ? '<div class="muted">Noch keine Vorlagen.</div>' : tpls.map(r => `
+    <div class="card" style="border-style:dashed">
+      <h3>${esc(r.name)}</h3>
+      ${r.description ? `<div class="muted" style="font-size:12px">${esc(r.description)}</div>` : ''}
+      <div class="meta"><span>${r.itemCount} Punkte</span><span class="badge">Vorlage</span></div>
+      <div class="actions">
+        <button class="btn primary small" data-inst="${r.id}" data-name="${esc(r.name.replace(/\s*\((Vorlage|Beispiel)\)$/, ''))}">Neuer Ablauf daraus</button>
+        <a class="btn small" href="/edit/${r.id}">Bearbeiten</a>
+        <button class="btn small" data-dup="${r.id}">Kopieren</button>
+        <button class="btn small danger" data-del="${r.id}" data-name="${esc(r.name)}">Löschen</button>
+      </div>
+    </div>`).join('');
+  $('#evTpl').innerHTML = '<option value="">– keine –</option>' + tpls.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+}
+
+async function onCardClick(e) {
+  const t = e.target.closest('[data-del],[data-dup],[data-keep],[data-mktpl],[data-inst]');
+  if (!t) return;
+  e.preventDefault();
+  try {
+    if (t.dataset.del && confirm(`„${t.dataset.name}“ wirklich löschen?`)) { await api('DELETE', '/api/rundowns/' + t.dataset.del); }
+    if (t.dataset.dup) await api('POST', `/api/rundowns/${t.dataset.dup}/duplicate`);
+    if (t.dataset.keep) await api('PATCH', '/api/rundowns/' + t.dataset.keep, { keep: t.dataset.val === '1' });
+    if (t.dataset.mktpl) {
+      const name = prompt('Name der Vorlage', t.dataset.name.replace(/\s+–\s+\d{1,2}\.\d{1,2}\.\d{4}$/, '') + ' (Vorlage)');
+      if (name == null) return;
+      await api('POST', `/api/rundowns/${t.dataset.mktpl}/save-template`, { name });
+      toast('Vorlage gespeichert', 'ok');
+    }
+    if (t.dataset.inst) {
+      const name = prompt('Name des neuen Ablaufs', t.dataset.name);
+      if (name == null) return;
+      const rd = await api('POST', `/api/templates/${t.dataset.inst}/instantiate`, { name });
+      location.href = '/edit/' + rd.id; return;
+    }
+    loadList();
+  } catch (err) { toast(err.message, 'error'); }
+}
+$('#list').addEventListener('click', onCardClick);
+$('#tplList').addEventListener('click', onCardClick);
+
+$('#btnFile').onclick = () => openImport();
+$('#btnNewTpl').onclick = async () => {
+  const name = prompt('Name der Vorlage', 'Neue Vorlage');
+  if (name == null) return;
+  const rd = await api('POST', '/api/templates', { name });
+  location.href = '/edit/' + rd.id;
+};
+
+$('#btnNew').onclick = async () => {
+  const name = prompt('Name des Ablaufs', 'Neuer Ablauf');
+  if (name == null) return;
+  const rd = await api('POST', '/api/rundowns', { name });
+  location.href = '/edit/' + rd.id;
+};
+
+// Dialoge schließen
+$$('dialog [data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
+
+// --- Import ---
+let events = [];
+const iso = d => d.toISOString().slice(0, 10);
+$('#evFrom').value = iso(new Date(Date.now() - 2 * 864e5));
+$('#evTo').value = iso(new Date(Date.now() + 45 * 864e5));
+
+async function loadEvents() {
+  $('#evList').innerHTML = '<div class="muted">Lade Events aus ChurchTools …</div>';
+  try {
+    events = await api('GET', `/api/ct/events?from=${$('#evFrom').value}&to=${$('#evTo').value}`);
+    renderEvents();
+  } catch (err) {
+    $('#evList').innerHTML = `<div class="badge warn">${esc(err.message)}</div>`;
+  }
+}
+function renderEvents() {
+  const f = $('#evFilter').value.toLowerCase();
+  const list = events.filter(e => !f || (e.name + ' ' + e.calendar).toLowerCase().includes(f));
+  $('#evList').innerHTML = list.length ? list.map(e => `
+    <div class="event-row" data-ev="${e.id}">
+      <div class="when">${esc(fmtDateTime(e.startDate))}</div>
+      <div style="flex:1"><strong>${esc(e.name)}</strong> ${e.isCanceled ? '<span class="badge warn">abgesagt</span>' : ''}<div class="muted" style="font-size:12px">${esc(e.calendar)}</div></div>
+      <span class="muted">→</span>
+    </div>`).join('') : '<div class="muted">Keine Events im Zeitraum.</div>';
+}
+$('#evFilter').oninput = renderEvents;
+$('#evReload').onclick = loadEvents;
+$('#evFrom').onchange = $('#evTo').onchange = loadEvents;
+$('#btnImport').onclick = () => { $('#dlgImport').showModal(); loadEvents(); };
+$('#evList').addEventListener('click', async e => {
+  const row = e.target.closest('[data-ev]'); if (!row) return;
+  row.style.opacity = .5;
+  try {
+    const rd = await api('POST', '/api/ct/import', { eventId: row.dataset.ev, templateId: $('#evTpl').value || null });
+    location.href = '/edit/' + rd.id;
+  } catch (err) { toast(err.message, 'error'); row.style.opacity = 1; }
+});
+
+// --- Einstellungen ---
+function ppForm() {
+  return { enabled: $('#ppEnabled').checked, host: $('#ppHost').value, port: $('#ppPort').value, timerName: $('#ppTimer').value,
+    stageMessage: $('#ppStage').checked, template: $('#ppTpl').value, clearOnEnd: $('#ppClear').checked };
+}
+function settingsBody() {
+  const b = { pp: ppForm() };
+  if (!$('#retDays').disabled) b.retentionDays = Number($('#retDays').value) || 0;
+  if (!$('#ctUrl').disabled) { b.ctUrl = $('#ctUrl').value; b.ctToken = $('#ctToken').value; }
+  return b;
+}
+$('#btnPpTest').onclick = async () => {
+  $('#ppResult').textContent = 'Teste …';
+  try {
+    await api('PUT', '/api/settings', settingsBody());
+    const r = await api('POST', '/api/settings/pp-test');
+    $('#ppResult').innerHTML = `<span class="under">✔ ${esc(r.name)} ${esc(r.version)} – Timer „${esc(r.timer)}“ bereit</span>`;
+  } catch (err) { $('#ppResult').innerHTML = `<span class="over">✖ ${esc(err.message)}</span>`; }
+};
+$('#btnSettings').onclick = async () => {
+  const s = await api('GET', '/api/settings');
+  $('#ppEnabled').checked = s.pp.enabled; $('#ppHost').value = s.pp.host; $('#ppPort').value = s.pp.port;
+  $('#retDays').value = s.retentionDays; $('#retDays').disabled = s.retentionFromEnv;
+  $('#ppTimer').value = s.pp.timerName; $('#ppStage').checked = s.pp.stageMessage; $('#ppTpl').value = s.pp.template; $('#ppClear').checked = s.pp.clearOnEnd;
+  $('#ppResult').innerHTML = s.ppStatus?.lastError ? `<span class="over">Letzter Fehler: ${esc(s.ppStatus.lastError)}</span>` : '';
+  $('#ctUrl').value = s.ctUrl; $('#ctToken').value = '';
+  $('#ctToken').placeholder = s.hasToken ? '•••••• (gespeichert, leer lassen = unverändert)' : 'Token einfügen';
+  $('#envHint').classList.toggle('hidden', !s.ctFromEnv);
+  $('#ctUrl').disabled = $('#ctToken').disabled = s.ctFromEnv;
+  $('#testResult').textContent = '';
+  $('#dlgSettings').showModal();
+};
+$('#btnSaveSettings').onclick = async () => {
+  try {
+    await api('PUT', '/api/settings', settingsBody());
+    toast('Gespeichert', 'ok'); $('#dlgSettings').close(); loadList();
+  } catch (err) { toast(err.message, 'error'); }
+};
+$('#btnTest').onclick = async () => {
+  $('#testResult').textContent = 'Teste …';
+  try {
+    if (!$('#ctUrl').disabled) await api('PUT', '/api/settings', { ctUrl: $('#ctUrl').value, ctToken: $('#ctToken').value });
+    const r = await api('POST', '/api/settings/test');
+    $('#testResult').innerHTML = `<span class="under">✔ Verbunden als ${esc(r.name)}</span>`;
+  } catch (err) { $('#testResult').innerHTML = `<span class="over">✖ ${esc(err.message)}</span>`; }
+};
+
+loadList().catch(err => toast(err.message, 'error'));
+</script>
+</body>
+</html>

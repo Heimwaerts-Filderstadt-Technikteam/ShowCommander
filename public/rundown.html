@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ablauf – ShowCommander</title>
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="btn small edit-only" href="/" id="bBack" title="Zurück zur Übersicht aller Abläufe">← Übersicht</a>
+  <input class="rd-title" id="rdName" value="" spellcheck="false">
+  <label class="muted" style="display:flex;align-items:center;gap:6px;font-size:12px">Start
+    <input type="datetime-local" id="rdStart" style="width:auto;padding:4px 6px">
+  </label>
+  <span class="conn" id="conn" title="Live-Verbindung"></span>
+  <div class="spacer"></div>
+  <a class="btn small" id="lnkOutput" target="_blank">Output</a>
+  <a class="btn small" id="lnkPrompter" target="_blank">Prompter</a>
+  <a class="btn small" id="lnkOverlay" target="_blank" title="Transparentes Overlay (für NDI/OBS/vMix oder Web-Quelle)">Overlay</a>
+  <a class="btn small" id="lnkView" target="_blank">Ansicht teilen</a>
+  <button class="btn small edit-only" id="bPP" title="Aktuellen Stand sofort an ProPresenter senden">→ ProPresenter</button>
+  <button class="btn small" id="bDeck" title="Adressen für Stream Deck / Companion">Stream Deck</button>
+</header>
+
+<section class="toolbar hidden" id="tplBanner" style="background:#1a1630;border-bottom-color:#4b3a99">
+  <span class="badge ct">Vorlage</span>
+  <span class="muted" style="font-size:12px">Mit <span class="src ct">CT</span> markierte Punkte sind Platzhalter: sie kommen beim Import aus ChurchTools bzw. der Datei – aus der Vorlage werden nur Notizen, Spalten, Farbe und Prompter-Text auf den gleichnamigen Punkt übertragen. Alle anderen Punkte werden hinter dem Punkt eingefügt, der hier direkt davor steht.</span>
+</section>
+
+<section class="transport">
+  <div class="controls edit-only">
+    <button class="btn go" id="bGo" title="Start / Nächster Punkt (Leertaste)">▶ Start</button>
+    <button class="btn icon" id="bPrev" title="Vorheriger Punkt (B)">⏮</button>
+    <button class="btn icon" id="bPause" title="Pause / Weiter (P)">⏸</button>
+    <button class="btn small" id="bMinus" title="Aktuellen Punkt um 1 Min kürzen (−)">−1m</button>
+    <button class="btn small" id="bPlus" title="Aktuellen Punkt um 1 Min verlängern (+)">+1m</button>
+    <button class="btn small stop" id="bEnd" title="Show beenden">■ Ende</button>
+  </div>
+  <div class="now">
+    <div class="label" id="nowLabel">Bereit</div>
+    <div class="title" id="nowTitle">–</div>
+    <div class="nexttitle" id="nextTitle"></div>
+    <div class="progress" id="nowProgress"><div></div></div>
+  </div>
+  <div class="timers">
+    <div class="timer big"><div class="v" id="tRemain">--:--</div><div class="l">Restzeit</div></div>
+    <div class="timer"><div class="v" id="tOver">--:--</div><div class="l">Über / Unter</div></div>
+    <div class="timer"><div class="v" id="tEnd">--:--</div><div class="l" id="tEndL">Ende geplant</div></div>
+    <div class="timer"><div class="v" id="tClock">--:--</div><div class="l">Uhrzeit</div></div>
+  </div>
+</section>
+
+<section class="toolbar">
+  <span class="edit-only" style="display:contents">
+    <button class="btn small" id="bAddCue">＋ Punkt</button>
+    <button class="btn small" id="bAddHeader">＋ Abschnitt</button>
+    <button class="btn small" id="bAddCol">＋ Spalte</button>
+    <span style="width:10px"></span>
+    <button class="btn small ct hidden" id="bSync">⟳ Mit ChurchTools synchronisieren</button>
+    <button class="btn small ct hidden" id="bLink">⇄ Mit ChurchTools-Event verknüpfen</button>
+    <button class="btn small hidden" id="bRestore">Gelöschte CT-Punkte zurückholen</button>
+    <span style="width:10px"></span>
+    <button class="btn small" id="bImportFile" title="Punkte aus PDF, Word, Excel, CSV oder Text anhängen">⬆ Importieren</button>
+    <button class="btn small" id="bApplyTpl" title="Eigene Punkte und Technik-Infos einer Vorlage übernehmen">Vorlage anwenden</button>
+    <button class="btn small" id="bSaveTpl" title="Diesen Ablauf als wiederverwendbare Vorlage speichern">Als Vorlage speichern</button>
+  </span>
+  <span class="info" id="syncInfo"></span>
+  <div class="spacer"></div>
+  <label class="check" style="margin:0;font-size:12px"><input type="checkbox" id="follow" checked> Folgen</label>
+  <span class="info" id="totalInfo"></span>
+  <a class="btn small" id="bCsv">CSV</a>
+  <button class="btn small" onclick="print()">Drucken / PDF</button>
+</section>
+
+<div class="rd-wrap">
+  <table class="rd" id="tbl">
+    <thead><tr id="thead"></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- Detail-Dialog -->
+<dialog id="dlgItem">
+  <div class="dlg-head"><h3 id="diTitle">Punkt bearbeiten</h3><button class="btn icon" data-close>✕</button></div>
+  <div class="dlg-body">
+    <div id="diCtInfo" class="hidden" style="margin-bottom:12px"></div>
+    <label class="field"><span>Titel</span><input type="text" id="diName"></label>
+    <div class="row2">
+      <label class="field"><span>Verantwortlich</span><input type="text" id="diWho"></label>
+      <label class="field"><span>Info (z. B. Lied, Arrangement)</span><input type="text" id="diInfo"></label>
+    </div>
+    <div class="row2 cue-only">
+      <label class="field"><span>Dauer (mm:ss, z. B. 5 oder 4:30)</span><input type="text" id="diDur" class="mono"></label>
+      <label class="field"><span>Feste Startzeit (optional)</span><input type="time" id="diHard" step="60"></label>
+    </div>
+    <div class="cue-only">
+      <label class="check"><input type="checkbox" id="diAuto"> Nach Ablauf automatisch zum nächsten Punkt springen</label>
+      <label class="check"><input type="checkbox" id="diSkip"> Überspringen (bleibt sichtbar, zählt nicht zur Zeit)</label>
+    </div>
+    <div class="tpl-only hidden">
+      <label class="check"><input type="checkbox" id="diTplCt"> Platzhalter für einen Punkt aus ChurchTools/Datei (nur Details übertragen, nicht einfügen)</label>
+    </div>
+    <label class="field"><span>Farbe</span><div class="swatches" id="diColors"></div></label>
+    <label class="field"><span>Notizen</span><textarea id="diNotes"></textarea></label>
+    <label class="field cue-only"><span>Prompter-Text (Moderation, Ansagen …)</span><textarea id="diScript" style="min-height:140px"></textarea></label>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn danger" id="diDelete" style="margin-right:auto">Löschen</button>
+    <button class="btn" data-close>Abbrechen</button>
+    <button class="btn primary" id="diSave">Übernehmen</button>
+  </div>
+</dialog>
+
+<!-- Vorlage anwenden -->
+<dialog id="dlgTpl">
+  <div class="dlg-head"><h3>Vorlage anwenden</h3><button class="btn icon" data-close>✕</button></div>
+  <div class="dlg-body">
+    <p class="muted" style="margin-top:0">Eigene Punkte der Vorlage werden passend einsortiert, Technik-Infos (Notizen, Spalten, Farbe, Prompter-Text) auf gleichnamige Punkte übertragen – nur wo noch nichts steht. Mehrfaches Anwenden fügt nichts doppelt ein.</p>
+    <label class="field"><span>Vorlage</span><select id="tplSelect"></select></label>
+  </div>
+  <div class="dlg-foot"><button class="btn" data-close>Abbrechen</button><button class="btn primary" id="tplApplyGo">Anwenden</button></div>
+</dialog>
+
+<!-- Stream Deck / Companion -->
+<dialog id="dlgDeck">
+  <div class="dlg-head"><h3>Stream Deck &amp; Companion</h3><button class="btn icon" data-close>✕</button></div>
+  <div class="dlg-body">
+    <p class="muted" style="margin-top:0">Am bequemsten: das mitgelieferte <strong>Companion-Modul</strong> oder das <strong>Stream-Deck-Plugin</strong> (siehe README). Dort nur Server-Adresse und als Ablauf <code>active</code> oder diese ID eintragen:</p>
+    <label class="field"><span>Ablauf-ID</span><input type="text" id="deckId" readonly class="mono"></label>
+    <p class="muted">Für einfache HTTP-Tasten (Companion „Generic HTTP“, Stream-Deck-Plugin „API Ninja“ o. ä.):</p>
+    <div id="deckUrls" class="mono" style="font-size:12px;display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+</dialog>
+
+<!-- Event verknüpfen -->
+<dialog id="dlgLink">
+  <div class="dlg-head"><h3>ChurchTools-Event verknüpfen</h3><button class="btn icon" data-close>✕</button></div>
+  <div class="dlg-body"><div class="event-list" id="linkList"></div></div>
+</dialog>
+
+<script src="/static/js/timing.js"></script>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/importmap.js"></script>
+<script src="/static/js/import-ui.js"></script>
+<script src="/static/js/editor.js"></script>
+</body>
+</html>

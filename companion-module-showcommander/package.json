@@ -1,0 +1,23 @@
+{
+  "name": "companion-module-showcommander",
+  "version": "1.0.0",
+  "description": "Bitfocus-Companion-Modul für ShowCommander (Rundown mit ChurchTools-Integration)",
+  "main": "src/main.js",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@companion-module/base": "~1.10.0"
+  },
+  "devDependencies": {
+    "@companion-module/tools": "^2.0.0"
+  },
+  "scripts": {
+    "package": "companion-module-build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Heimwaerts-Filderstadt-Technikteam/ShowCommander.git"
+  }
+}

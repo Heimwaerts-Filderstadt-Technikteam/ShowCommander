@@ -1,0 +1,119 @@
+{
+  "Name": "ShowCommander",
+  "Version": "1.0.0.0",
+  "Author": "ShowCommander",
+  "Description": "Showcalling für ShowCommander: Start/Weiter, Pause, Zeit anpassen, Punkte anspringen – mit Live-Restzeit auf den Tasten.",
+  "URL": "https://github.com/Heimwaerts-Filderstadt-Technikteam/ShowCommander",
+  "Icon": "imgs/plugin",
+  "Category": "ShowCommander",
+  "CategoryIcon": "imgs/category",
+  "CodePath": "plugin.html",
+  "PropertyInspectorPath": "pi.html",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "5.0"
+  },
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "10.14"
+    },
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Actions": [
+    {
+      "UUID": "de.showcommander.go",
+      "Name": "GO (Start / Weiter)",
+      "Tooltip": "Startet die Show bzw. springt zum nächsten Punkt. Zeigt die Restzeit.",
+      "Icon": "imgs/action_go",
+      "States": [
+        {
+          "Image": "imgs/key_go",
+          "ShowTitle": false
+        }
+      ],
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "de.showcommander.prev",
+      "Name": "Zurück",
+      "Tooltip": "Vorheriger Punkt",
+      "Icon": "imgs/action_prev",
+      "States": [
+        {
+          "Image": "imgs/key_prev",
+          "ShowTitle": false
+        }
+      ],
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "de.showcommander.pause",
+      "Name": "Pause / Weiter",
+      "Tooltip": "Hält die Zeit an bzw. läuft weiter",
+      "Icon": "imgs/action_pause",
+      "States": [
+        {
+          "Image": "imgs/key_pause",
+          "ShowTitle": false
+        }
+      ],
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "de.showcommander.adjust",
+      "Name": "Zeit ± anpassen",
+      "Tooltip": "Verlängert/kürzt den aktuellen Punkt (Sekunden einstellbar)",
+      "Icon": "imgs/action_adjust",
+      "States": [
+        {
+          "Image": "imgs/key_adjust",
+          "ShowTitle": false
+        }
+      ],
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "de.showcommander.goto",
+      "Name": "Punkt starten",
+      "Tooltip": "Startet einen bestimmten Punkt (Nummer wie im Editor)",
+      "Icon": "imgs/action_goto",
+      "States": [
+        {
+          "Image": "imgs/key_goto",
+          "ShowTitle": false
+        }
+      ],
+      "SupportedInMultiActions": true
+    },
+    {
+      "UUID": "de.showcommander.display",
+      "Name": "Anzeige",
+      "Tooltip": "Zeigt Restzeit, Jetzt, Danach, Über/Unter oder Ende",
+      "Icon": "imgs/action_display",
+      "States": [
+        {
+          "Image": "imgs/key_display",
+          "ShowTitle": false
+        }
+      ],
+      "SupportedInMultiActions": false
+    },
+    {
+      "UUID": "de.showcommander.end",
+      "Name": "Show beenden (lang drücken)",
+      "Tooltip": "Beendet die Show – Taste mind. 0,7 Sekunden halten",
+      "Icon": "imgs/action_end",
+      "States": [
+        {
+          "Image": "imgs/key_end",
+          "ShowTitle": false
+        }
+      ],
+      "SupportedInMultiActions": true
+    }
+  ]
+}
