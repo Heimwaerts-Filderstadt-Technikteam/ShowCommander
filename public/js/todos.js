@@ -106,7 +106,7 @@
       : '');
     set(PH.post.info, r.post.total
       ? `<span>${r.post.done}/${r.post.total} erledigt</span><span>· ab ${fmtT(r.postStart, r.relative)}</span><span>· alles fertig bis <strong class="mono" style="color:var(--text)">${fmtT(r.postEnd, r.relative)}</strong></span>${badge(r.post)}${relHint}`
-      : (rd.items?.length ? `<span>Show-Ende ${fmtT(r.showEnd, r.relative)}</span>` : ''));
+      : (rd.items?.length ? `<span>Ablauf endet ${fmtT(r.showEnd, r.relative)}</span>` : ''));
 
     for (const td of rd.todos || []) {
       const x = r.items[td.id]; if (!x) continue;

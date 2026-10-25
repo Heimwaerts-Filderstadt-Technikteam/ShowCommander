@@ -104,16 +104,23 @@
   }
 
   /**
-   * Ende des Events: fest eingetragenes Ende (endOffset, Sekunden nach dem Start) oder
-   * automatisch aus dem Ablauf. Läuft die Show und überzieht über das feste Ende hinaus,
-   * zählt das erwartete Ende.
+   * Späteste Uhrzeit im Ablauf: das Ende des Programmpunkts, der am spätesten aufhört
+   * (übersprungene Punkte zählen nicht). Läuft die Show, zählen die erwarteten Zeiten –
+   * wird der Ablauf vor- oder zurückgeschoben, wandert dieser Wert mit.
    */
-  function eventEnd(rd, t) {
+  function latestEnd(rd, t) {
     t = t || compute(rd, rd.live);
-    const auto = t.projectedEnd != null ? t.projectedEnd : t.plannedEnd;
-    if (rd.endOffset == null || !rd.startTime) return auto;
-    const fixed = Date.parse(rd.startTime) + Number(rd.endOffset) * 1000;
-    return t.projectedEnd != null && t.projectedEnd > fixed ? t.projectedEnd : fixed;
+    let max = null;
+    for (const it of rd.items || []) {
+      if (!isPlayable(it)) continue;
+      const r = t.items[it.id];
+      if (!r) continue;
+      const start = r.projectedStart != null ? r.projectedStart : r.plannedStart;
+      if (start == null) continue;
+      const end = start + (it.duration || 0) * 1000;
+      if (max == null || end > max) max = end;
+    }
+    return max != null ? max : (t.projectedEnd != null ? t.projectedEnd : t.plannedEnd);
   }
 
   /**
@@ -136,7 +143,7 @@
     const rel = base == null;
     const S = rel ? 0 : base;
     const t = compute(rd, rd.live, now);
-    const showEnd = eventEnd(rd, t);
+    const showEnd = latestEnd(rd, t);
     const fixedMs = td => (td.fixedDue == null || td.fixedDue === '' || rel ? null : S + Number(td.fixedDue) * 1000);
     const dur = td => (td.duration || 0) * 1000;
     const groupsOf = list => {
@@ -208,5 +215,5 @@
     };
   }
 
-  return { compute, computeTodos, eventEnd, remainingMs, fmtDur, fmtClock, parseDur, isPlayable, hardStartMs };
+  return { compute, computeTodos, latestEnd, remainingMs, fmtDur, fmtClock, parseDur, isPlayable, hardStartMs };
 });

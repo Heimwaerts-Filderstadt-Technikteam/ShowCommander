@@ -70,7 +70,6 @@ function render() {
   if (document.activeElement !== $('#rdName')) $('#rdName').value = rd.name;
   if (document.activeElement !== $('#rdStart')) $('#rdStart').value = rd.startTime ? toLocalInput(rd.startTime) : '';
   $('#rdName').readOnly = !canEdit; $('#rdStart').disabled = !canEdit;
-  renderEnd();
 
   // Vorlagen-Modus
   const isTpl = !!rd.isTemplate;
@@ -81,7 +80,6 @@ function render() {
   $('.transport .controls').classList.toggle('hidden', !canControl);
   $('#bSaveTpl').textContent = isTpl ? 'Vorlage kopieren' : 'Als Vorlage speichern';
   $('#rdStart').closest('label').classList.toggle('hidden', isTpl);
-  $('#rdEndWrap').classList.toggle('hidden', isTpl);
 
   // ChurchTools-Status
   const linked = !!rd.ct?.eventId;
@@ -209,7 +207,6 @@ function updateLive(force) {
   $('#tOver').textContent = ou == null ? '--:--' : Timing.fmtDur(ou, { plus: true });
   $('#tOver').className = 'v ' + (ou == null ? '' : ou > 0 ? 'over' : 'under');
   if (running && T.projectedEnd && !T.relative) { $('#tEnd').textContent = Timing.fmtClock(T.projectedEnd); $('#tEndL').textContent = 'Ende erwartet'; }
-  else if (!T.relative && rd.endOffset != null) { $('#tEnd').textContent = Timing.fmtClock(Timing.eventEnd(rd, T)); $('#tEndL').textContent = 'Ende (fest)'; }
   else { $('#tEnd').textContent = T.relative ? Timing.fmtDur(T.plannedEnd) : Timing.fmtClock(T.plannedEnd); $('#tEndL').textContent = T.relative ? 'Gesamtdauer' : 'Ende geplant'; }
   $('#tClock').textContent = Timing.fmtClock(t, true);
   if (window.updateTodos) updateTodos(t);
@@ -321,38 +318,6 @@ $('#bAddCol').onclick = async () => {
 $('#rdName').addEventListener('change', e => api('PATCH', base, { name: e.target.value }).catch(err => toast(err.message, 'error')));
 $('#rdName').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 $('#rdStart').addEventListener('change', e => api('PATCH', base, { startTime: e.target.value ? new Date(e.target.value).toISOString() : null }).catch(err => toast(err.message, 'error')));
-
-// ---------- Event-Ende ----------
-// Leer = automatisch aus dem Ablauf; eingetragen = festes Ende (gespeichert relativ zum Start, wandert also mit)
-function renderEnd() {
-  const inp = $('#rdEnd');
-  const fixed = rd.endOffset != null && !!rd.startTime;
-  const auto = Timing.compute(rd, null).plannedEnd;
-  inp.disabled = !canEdit || !rd.startTime;
-  inp.title = !rd.startTime ? 'Erst eine Startzeit setzen' : fixed ? 'Fest eingetragen – leeren oder ↺ für automatisch' : 'Automatisch aus dem Ablauf – Uhrzeit eintragen, um das Ende festzulegen';
-  inp.classList.toggle('fixed', fixed);
-  $('#rdEndReset').classList.toggle('hidden', !fixed || !canEdit);
-  if (document.activeElement === inp) return;
-  if (fixed) inp.value = Timing.fmtClock(Date.parse(rd.startTime) + rd.endOffset * 1000);
-  else { inp.value = ''; inp.placeholder = rd.startTime ? Timing.fmtClock(auto) : 'auto'; }
-}
-let endOrig = '';
-$('#rdEnd').addEventListener('focus', e => { endOrig = e.target.value; });
-$('#rdEnd').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { e.target.value = endOrig; e.target.blur(); } });
-$('#rdEnd').addEventListener('change', e => {
-  const v = e.target.value.trim();
-  if (!v) { rd.endOffset = null; renderEnd(); if (window.updateTodos) updateTodos(); return api('PATCH', base, { endOffset: null }).catch(err => toast(err.message, 'error')); }
-  const m = /^(\d{1,2})[:.](\d{2})$/.exec(v);
-  if (!m || +m[1] > 23 || +m[2] > 59) { toast('Uhrzeit nicht erkannt – z. B. 11:30', 'error'); e.target.value = endOrig; return; }
-  const start = Date.parse(rd.startTime);
-  const d = new Date(start); d.setHours(+m[1], +m[2], 0, 0);
-  let ms = d.getTime();
-  if (ms <= start) ms += 864e5; // vor dem Start = Folgetag
-  rd.endOffset = Math.round((ms - start) / 1000);
-  renderEnd(); if (window.updateTodos) updateTodos();
-  api('PATCH', base, { endOffset: rd.endOffset }).catch(err => toast(err.message, 'error'));
-});
-$('#rdEndReset').onclick = e => { e.preventDefault(); $('#rdEnd').value = ''; $('#rdEnd').dispatchEvent(new Event('change')); };
 
 $('#bAddCue').onclick = () => addItem(rd.items[rd.items.length - 1]?.id, 'cue');
 $('#bAddHeader').onclick = () => addItem(rd.items[rd.items.length - 1]?.id, 'header');
