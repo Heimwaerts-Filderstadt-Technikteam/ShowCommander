@@ -156,14 +156,14 @@ Jede Person bekommt ein eigenes Konto (Benutzername + Passwort). Admins legen Ko
 
 ## Vor- & Nachbereitung (Todos)
 
-Über dem Ablauf gibt es zwei Listen: **Vor dem Event** (Aufbau, Soundcheck, Stream-Test …) und **Nach dem Event** (Stream beenden, Abbau, Video hochladen …).
+Zwei getrennte Blöcke im Editor: **Vorbereitung** steht über dem Ablauf (Aufbau, Soundcheck, Stream-Test …), **Nachbereitung** darunter (Stream beenden, Abbau, Video hochladen …). Jeder Block hat eigenen Puffer, lässt sich einzeln ein- und ausklappen und hat ein eigenes „Häkchen zurücksetzen“.
 
-**Vor dem Event** – rückwärts vom Show-Start
+**Vorbereitung** – rückwärts vom Show-Start
 - Pro Aufgabe **Dauer** und optional **Wer** eintragen. ShowCommander rechnet aus, wann jede Aufgabe **spätestens beginnen** muss und bis wann sie **fertig** sein muss.
 - Die Reihenfolge ist die Arbeitsreihenfolge – die letzte Aufgabe muss zum Start (minus **Puffer**) fertig sein.
 - Oben steht, wann die Vorbereitung insgesamt spätestens beginnen muss.
 
-**Nach dem Event** – vorwärts ab Show-Ende
+**Nachbereitung** – vorwärts ab Show-Ende
 - Startet am (erwarteten) Ende des Ablaufs plus **Puffer**. Läuft die Show länger, verschieben sich die Zeiten automatisch mit.
 - Angezeigt werden „Beginn ab“, „Fertig bis“ und wann alles erledigt ist.
 
@@ -176,7 +176,7 @@ Jede Person bekommt ein eigenes Konto (Benutzername + Passwort). Admins legen Ko
 
 **Allgemein**
 - **⇉ parallel:** läuft gleichzeitig mit der vorherigen Aufgabe (gleiche Fertig-Zeit vor dem Event bzw. gleicher Beginn danach).
-- **↑ / ↓** oder Drag & Drop verschiebt Aufgaben zwischen vor und nach dem Event.
+- **↑ / ↓** oder Drag & Drop verschiebt Aufgaben zwischen Vor- und Nachbereitung.
 - Status: geplant · *jetzt beginnen* · *läuft jetzt* · *überfällig* · erledigt.
 - Abhaken darf schon die Rolle *Steuern*; gespeichert wird, wer wann abgehakt hat. Die Dashboard-Karte zeigt den Stand.
 - Todos werden in **Vorlagen** übernommen, beim Anwenden einer Vorlage ergänzt und beim Kopieren eines Ablaufs zurückgesetzt.

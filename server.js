@@ -234,7 +234,11 @@ app.post('/api/rundowns/:id/todos-move', auth, (req, res) => {
 });
 app.post('/api/rundowns/:id/todos-reset', auth, (req, res) => {
   const rd = getRd(req, res); if (!rd) return;
-  for (const t of rd.todos || []) { t.done = false; t.doneBy = null; t.doneAt = null; }
+  const phase = req.body?.phase; // optional: nur 'pre' oder 'post' zurücksetzen
+  for (const t of rd.todos || []) {
+    if (phase && (t.phase === 'post' ? 'post' : 'pre') !== phase) continue;
+    t.done = false; t.doneBy = null; t.doneAt = null;
+  }
   store.save(rd); pushRundown(rd);
   res.json({ ok: true });
 });

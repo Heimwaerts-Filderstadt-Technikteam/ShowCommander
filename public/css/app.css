@@ -124,7 +124,7 @@ dialog .dlg-foot { padding: 12px 18px; border-top: 1px solid var(--line); displa
 .toolbar { display: flex; gap: 6px; padding: 10px 16px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--line); }
 .toolbar .info { color: var(--muted); font-size: 12px; }
 
-.rd-wrap { padding: 0 0 120px; overflow-x: auto; }
+.rd-wrap { padding: 0; overflow-x: auto; }
 table.rd { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 900px; }
 table.rd th { position: sticky; top: 0; background: var(--bg2); font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); text-align: left; padding: 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
 table.rd td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -281,3 +281,10 @@ table.todo .t-due::placeholder { color: var(--text); opacity: .55; }
 .duewrap .unfix:hover { color: var(--text); background: var(--panel2); }
 .tstate.running { background: #0f2a3a; color: #7cc7ff; }
 .tconf { font-size: 11px; color: var(--warn); white-space: nowrap; }
+
+/* Getrennte Blöcke: Vorbereitung oben, Nachbereitung unter dem Ablauf */
+.todos-post { border-top: 1px solid var(--line); border-bottom: 0; margin-bottom: 120px; }
+.todos .todo-head .buf { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.todos .todo-head .buf input { width: 52px; padding: 3px 6px; }
+.todos .phase-list.drop-target, .todos.drop-target .phase-list { outline: 2px dashed var(--accent); outline-offset: 2px; border-radius: 6px; }
+.todos .todo-empty { padding: 4px 0 6px; }
