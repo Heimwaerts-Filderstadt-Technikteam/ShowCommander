@@ -58,8 +58,8 @@
         <td class="tt">${ce ? `<input type="text" data-f="title" value="${esc(t.title)}" placeholder="Aufgabe">` : esc(t.title)}
           ${t.done && t.doneBy ? `<br><span class="doneby">✓ ${esc(t.doneBy)}${t.doneAt ? ', ' + Timing.fmtClock(Date.parse(t.doneAt)) : ''}</span>` : ''}</td>
         <td>${ce ? `<input type="text" data-f="who" value="${esc(t.who)}" placeholder="–">` : esc(t.who)}</td>
-        <td>${ce ? `<input type="text" data-f="duration" class="t-dur" value="${Timing.fmtDur(t.duration * 1000)}">` : `<span class="mono">${Timing.fmtDur(t.duration * 1000)}</span>`}</td>
         <td class="t-time" data-start="${t.id}"></td>
+        <td>${ce ? `<input type="text" data-f="duration" class="t-dur" value="${Timing.fmtDur(t.duration * 1000)}">` : `<span class="mono">${Timing.fmtDur(t.duration * 1000)}</span>`}</td>
         <td class="t-time">${ce
           ? `<div class="duewrap"><input type="text" data-f="due" class="t-due${t.fixedDue != null ? ' fixed' : ''}" ${hasStart ? '' : 'disabled title="Erst eine Startzeit für den Ablauf setzen"'}
                title="${t.fixedDue != null ? 'Fest eingetragen – leeren oder ↺ für automatische Berechnung' : 'Automatisch berechnet – eine Uhrzeit eintragen, um sie festzulegen'}">
@@ -86,8 +86,8 @@
       cfg.list.innerHTML = !list.length
         ? `<div class="todo-empty">${ce ? cfg.empty : '–'}</div>`
         : `<table class="todo"><thead><tr>
-            <th></th><th style="width:28px">✓</th><th>Aufgabe</th><th style="width:150px">Wer</th><th style="width:96px">Dauer</th>
-            <th style="width:110px">${cfg.startLabel}</th><th style="width:120px">Fertig bis</th><th style="width:130px">Status</th><th style="width:96px"></th>
+            <th></th><th style="width:28px">✓</th><th>Aufgabe</th><th style="width:150px">Wer</th><th style="width:110px">${cfg.startLabel}</th>
+            <th style="width:96px">Dauer</th><th style="width:120px">Fertig bis</th><th style="width:130px">Status</th><th style="width:96px"></th>
           </tr></thead><tbody>${list.map(t => rowHtml(t, ce)).join('')}</tbody></table>`;
     }
     updateTodos();
